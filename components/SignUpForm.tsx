@@ -24,14 +24,15 @@ function getFirebaseErrorMessage(code: string): string {
 interface SignUpFormProps {
   onSuccess?: () => void;
   onSwitchToLogin?: () => void;
+  initialInviteCode?: string;
 }
 
-export function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormProps) {
+export function SignUpForm({ onSuccess, onSwitchToLogin, initialInviteCode }: SignUpFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(initialInviteCode || "");
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { signUp } = useAuth();

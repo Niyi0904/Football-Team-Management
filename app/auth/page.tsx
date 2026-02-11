@@ -1,13 +1,23 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Trophy } from "lucide-react";
 import { SignInForm } from "@/components/SignInForm";
 import { SignUpForm } from "@/components/SignUpForm";
 
-export default function Auth() {
+function AuthContent() {
   const [isLogin, setIsLogin] = useState(true);
+  const searchParams = useSearchParams();
+  const inviteCode = searchParams.get('inviteCode');
+
+  // If invite code is in URL, switch to signup automatically
+  useEffect(() => {
+    if (inviteCode) {
+      setIsLogin(false);
+    }
+  }, [inviteCode]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -33,9 +43,17 @@ export default function Auth() {
         {isLogin ? (
           <SignInForm onSwitchToSignUp={() => setIsLogin(false)} />
         ) : (
-          <SignUpForm onSwitchToLogin={() => setIsLogin(true)} />
+          <SignUpForm onSwitchToLogin={() => setIsLogin(true)} initialInviteCode={inviteCode || undefined} />
         )}
       </motion.div>
     </div>
+  );
+}
+
+export default function Auth() {
+  return (
+    <Suspense fallback={<div />}>
+      <AuthContent />
+    </Suspense>
   );
 }

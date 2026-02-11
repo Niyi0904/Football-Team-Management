@@ -1,3 +1,5 @@
+'use client';
+
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Target, Users, AlertTriangle, Clock, Trophy, TrendingUp } from "lucide-react";
