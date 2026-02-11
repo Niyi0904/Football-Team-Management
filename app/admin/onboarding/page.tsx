@@ -68,8 +68,8 @@ function OnboardingContent() {
   }
 
   const handleCreateInvite = async () => {
-    if (!inviteEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
-      toast({ title: 'Error', description: 'Please enter a valid email', variant: 'destructive' });
+    if (!inviteEmail.trim() || !/^[^\s@]+@gmail\.com$/.test(inviteEmail)) {
+      toast({ title: 'Error', description: 'Please enter a valid Gmail address (@gmail.com)', variant: 'destructive' });
       return;
     }
 
@@ -250,17 +250,19 @@ function OnboardingContent() {
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div>
-                <label className="text-sm text-muted-foreground block mb-2">Email</label>
+                <label className="text-sm text-muted-foreground block mb-2">Email (Gmail only)</label>
                 <Input
                   type="email"
-                  placeholder="user@example.com"
+                  placeholder="user@gmail.com"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   className="bg-secondary border-border"
                 />
 
                 <div className="mt-2">
-                  {emailChecking ? (
+                  {inviteEmail && !inviteEmail.endsWith('@gmail.com') ? (
+                    <p className="text-sm text-destructive">Only Gmail addresses (@gmail.com) are allowed.</p>
+                  ) : emailChecking ? (
                     <p className="text-sm text-muted-foreground">Checking email…</p>
                   ) : emailStatus?.registered ? (
                     <p className="text-sm text-destructive">This email is already registered.</p>
@@ -296,7 +298,7 @@ function OnboardingContent() {
                   Send invite via email
                 </label>
               </div>
-              <Button onClick={handleCreateInvite} className="w-full" disabled={isSubmitting || !!emailStatus?.registered || !!emailStatus?.pendingInvite}>
+              <Button onClick={handleCreateInvite} className="w-full" disabled={isSubmitting || !!emailStatus?.registered || !!emailStatus?.pendingInvite || !!(inviteEmail && !inviteEmail.endsWith('@gmail.com'))}>
                 {isSubmitting ? 'Creating...' : 'Create Invite'}
               </Button>
             </div>
