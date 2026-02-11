@@ -100,6 +100,36 @@ export async function getPendingInvites(): Promise<any[]> {
 }
 
 /**
+ * Find a pending invite by email
+ */
+export async function findPendingInviteByEmail(email: string): Promise<any | null> {
+  try {
+    const q = query(collection(db, 'user_invites'), where('email', '==', email), where('used', '==', false));
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    const d = snap.docs[0];
+    return { id: d.id, ...d.data() };
+  } catch (error) {
+    console.error('Error finding pending invite by email', error);
+    return null;
+  }
+}
+
+/**
+ * Check whether a user is already registered with this email
+ */
+export async function isUserRegistered(email: string): Promise<boolean> {
+  try {
+    const q = query(collection(db, 'users'), where('email', '==', email));
+    const snap = await getDocs(q);
+    return !snap.empty;
+  } catch (error) {
+    console.error('Error checking registered user', error);
+    return false;
+  }
+}
+
+/**
  * Set user role (admin or user)
  */
 export async function setUserRole(userId: string, role: 'admin' | 'user'): Promise<void> {

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Plus, Mail, Copy, Trash2, Check, X } from 'lucide-react';
 import { useAppContext } from '@/app/context/AppDataContext';
-import { createUserInvite, getPendingInvites, setUserRole, getAllUsersWithRoles, deleteUserInvite } from '@/lib/admin';
+import { createUserInvite, getPendingInvites, setUserRole, getAllUsersWithRoles, deleteUserInvite, findPendingInviteByEmail, isUserRegistered } from '@/lib/admin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -32,6 +32,8 @@ function OnboardingContent() {
   const [openInviteDialog, setOpenInviteDialog] = useState(false);
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [emailStatus, setEmailStatus] = useState<{ pendingInvite?: any; registered?: boolean } | null>(null);
+  const [emailChecking, setEmailChecking] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [selectedUserRole, setSelectedUserRole] = useState<string | null>(null);
   const [changingRoleUserId, setChangingRoleUserId] = useState<string | null>(null);
@@ -140,6 +142,53 @@ function OnboardingContent() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
+  // Debounced live email validation
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const email = inviteEmail?.trim();
+    if (!email) {
+      setEmailStatus(null);
+      setEmailChecking(false);
+      return;
+    }
+    setEmailChecking(true);
+    t = setTimeout(async () => {
+      try {
+        const pending = await findPendingInviteByEmail(email);
+        const registered = await isUserRegistered(email);
+        setEmailStatus({ pendingInvite: pending ?? undefined, registered: !!registered });
+      } catch (err) {
+        setEmailStatus(null);
+      } finally {
+        setEmailChecking(false);
+      }
+    }, 400);
+
+    return () => {
+      if (t) clearTimeout(t);
+    };
+  }, [inviteEmail]);
+
+  const handleResendInvite = async (inviteCode: string, role: string) => {
+    setIsSubmitting(true);
+    try {
+      const resp = await fetch('/api/send-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail, inviteCode, role }),
+      });
+      if (resp.ok) {
+        toast({ title: 'Sent', description: 'Invite email resent' });
+      } else {
+        toast({ title: 'Error', description: 'Failed to resend invite', variant: 'destructive' });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to resend invite', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleRevokeInvite = async (inviteCode: string) => {
     if (!confirm('Revoke this invite? This cannot be undone.')) return;
     setIsSubmitting(true);
@@ -209,6 +258,21 @@ function OnboardingContent() {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   className="bg-secondary border-border"
                 />
+
+                <div className="mt-2">
+                  {emailChecking ? (
+                    <p className="text-sm text-muted-foreground">Checking email…</p>
+                  ) : emailStatus?.registered ? (
+                    <p className="text-sm text-destructive">This email is already registered.</p>
+                  ) : emailStatus?.pendingInvite ? (
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm text-amber-600">Pending invite exists (code: {emailStatus.pendingInvite.id})</p>
+                      <Button size="sm" variant="ghost" onClick={() => handleResendInvite(emailStatus.pendingInvite.id, emailStatus.pendingInvite.role)}>
+                        <Mail className="w-4 h-4" /> Resend
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">Role</label>
@@ -232,7 +296,7 @@ function OnboardingContent() {
                   Send invite via email
                 </label>
               </div>
-              <Button onClick={handleCreateInvite} className="w-full" disabled={isSubmitting}>
+              <Button onClick={handleCreateInvite} className="w-full" disabled={isSubmitting || !!emailStatus?.registered || !!emailStatus?.pendingInvite}>
                 {isSubmitting ? 'Creating...' : 'Create Invite'}
               </Button>
             </div>
