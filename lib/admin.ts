@@ -18,6 +18,24 @@ export async function createUserInvite(
   createdByAdminId: string
 ): Promise<{ inviteCode: string; error: null } | { error: any }> {
   try {
+    // Check if a pending invite already exists for this email
+    const invitesQuery = query(
+      collection(db, 'user_invites'),
+      where('email', '==', email),
+      where('used', '==', false)
+    );
+    const invitesSnap = await getDocs(invitesQuery);
+    if (!invitesSnap.empty) {
+      return { error: { code: 'ALREADY_INVITED', message: 'There is already a pending invite for this email.' } };
+    }
+
+    // Check if a user is already registered with this email
+    const usersQuery = query(collection(db, 'users'), where('email', '==', email));
+    const usersSnap = await getDocs(usersQuery);
+    if (!usersSnap.empty) {
+      return { error: { code: 'ALREADY_REGISTERED', message: 'A user with this email is already registered.' } };
+    }
+
     const inviteCode = generateInviteCode();
     await setDoc(doc(db, 'user_invites', inviteCode), {
       email,

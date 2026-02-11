@@ -114,6 +114,16 @@ function OnboardingContent() {
         setSendEmail(true);
         setOpenInviteDialog(false);
         await fetchPendingInvites();
+      } else if (res.error) {
+        const code = res.error.code;
+        if (code === 'ALREADY_INVITED') {
+          toast({ title: 'Invite Exists', description: 'There is already a pending invite for this email.', variant: 'destructive' });
+        } else if (code === 'ALREADY_REGISTERED') {
+          toast({ title: 'User Exists', description: 'A user with this email is already registered.', variant: 'destructive' });
+        } else {
+          const msg = typeof res.error === 'string' ? res.error : res.error?.message ?? 'Failed to create invite';
+          toast({ title: 'Error', description: msg, variant: 'destructive' });
+        }
       } else {
         toast({ title: 'Error', description: 'Failed to create invite', variant: 'destructive' });
       }
