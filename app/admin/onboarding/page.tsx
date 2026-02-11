@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Plus, Mail, Copy, Trash2, Check, X } from 'lucide-react';
 import { useAppContext } from '@/app/context/AppDataContext';
-import { createUserInvite, getPendingInvites, setUserRole, getAllUsersWithRoles } from '@/lib/admin';
+import { createUserInvite, getPendingInvites, setUserRole, getAllUsersWithRoles, deleteUserInvite } from '@/lib/admin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -140,6 +140,24 @@ function OnboardingContent() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
+  const handleRevokeInvite = async (inviteCode: string) => {
+    if (!confirm('Revoke this invite? This cannot be undone.')) return;
+    setIsSubmitting(true);
+    try {
+      const res = await deleteUserInvite(inviteCode);
+      if ((res as any).error) {
+        toast({ title: 'Error', description: 'Failed to revoke invite', variant: 'destructive' });
+      } else {
+        toast({ title: 'Success', description: 'Invite revoked' });
+        await fetchPendingInvites();
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to revoke invite', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleChangeRole = async (userId: string, newRole: 'admin' | 'user') => {
     setChangingRoleUserId(userId);
     try {
@@ -240,27 +258,35 @@ function OnboardingContent() {
                   <p className="text-sm font-semibold">{invite.email}</p>
                   <p className="text-xs text-muted-foreground">Code: {invite.id}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs bg-accent/15 text-accent px-2 py-1 rounded-full font-medium">
-                    {invite.role}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleCopyCode(invite.id)}
-                    className="gap-1"
-                  >
-                    {copiedCode === invite.id ? (
-                      <>
-                        <Check className="w-3 h-3" /> Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" /> Copy
-                      </>
-                    )}
-                  </Button>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-accent/15 text-accent px-2 py-1 rounded-full font-medium">
+                      {invite.role}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleCopyCode(invite.id)}
+                      className="gap-1"
+                    >
+                      {copiedCode === invite.id ? (
+                        <>
+                          <Check className="w-3 h-3" /> Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" /> Copy
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleRevokeInvite(invite.id)}
+                      className="gap-1 text-destructive"
+                    >
+                      <Trash2 className="w-3 h-3" /> Revoke
+                    </Button>
+                  </div>
               </div>
             ))
           )}

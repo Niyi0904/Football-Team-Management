@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { serverTimestamp } from 'firebase/firestore';
 
@@ -136,5 +136,18 @@ export async function getAllUsersWithRoles(): Promise<any[]> {
   } catch (error) {
     console.error('Error getting users with roles', error);
     return [];
+  }
+}
+
+/**
+ * Delete (revoke) an invite by its code
+ */
+export async function deleteUserInvite(inviteCode: string): Promise<{ success: true } | { error: any }> {
+  try {
+    await deleteDoc(doc(db, 'user_invites', inviteCode));
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting invite', error);
+    return { error };
   }
 }
