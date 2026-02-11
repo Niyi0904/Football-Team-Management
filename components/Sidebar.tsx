@@ -12,10 +12,10 @@ import {
   Trophy,
   Menu,
   X,
-  LogOut,
 } from "lucide-react";
 import { useAppContext } from "@/app/context/AppDataContext";
 import { Button } from "@/components/ui/button";
+import { UserProfileDropdown } from "./UserProfileDropdown";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -95,15 +95,21 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="mt-auto pt-6 border-t border-border space-y-3">
-          <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
           {isAdmin && (
             <span className="inline-block text-[10px] uppercase tracking-wider bg-accent/15 text-accent px-2 py-0.5 rounded-full font-semibold">
               Admin
             </span>
           )}
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground" onClick={signOut}>
-            <LogOut className="w-3.5 h-3.5" /> Sign Out
-          </Button>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </div>
+            <UserProfileDropdown
+              user={user}
+              onSignOut={signOut}
+              size="md"
+            />
+          </div>
         </div>
       </aside>
 
@@ -122,7 +128,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Menu */}
       {mobileOpen && (
-        <motion.div initial={{ opacity: 0, x: -200 }} animate={{ opacity: 1, x: 0 }} className="lg:hidden fixed inset-0 z-30 bg-background/95 backdrop-blur-md pt-16">
+        <motion.div initial={{ opacity: 0, x: -200 }} animate={{ opacity: 1, x: 0 }} className="lg:hidden fixed inset-0 z-30 bg-background/95 backdrop-blur-md pt-16 pb-20">
           <nav className="flex flex-col gap-1 p-4">
             {navItems.map((item) => {
               const isActive = pathname === item.path;
@@ -170,6 +176,24 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
               </>
             )}
           </nav>
+
+          {/* Mobile Menu Footer */}
+          <div className="fixed bottom-0 left-0 right-0 p-4 border-t border-border bg-sidebar">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1">
+                <p className="text-xs font-medium truncate">{user?.displayName || 'User'}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+              <UserProfileDropdown
+                user={user}
+                onSignOut={() => {
+                  setMobileOpen(false);
+                  signOut();
+                }}
+                size="sm"
+              />
+            </div>
+          </div>
         </motion.div>
       )}
 
