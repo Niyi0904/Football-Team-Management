@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Shield, Plus, Users, Crown } from "lucide-react";
+import { Shield, Plus, Users, Crown, Trash2, Upload } from "lucide-react";
 import { uploadProfileImage } from "@/lib/uploadImage";
 import { useAppContext } from "../context/AppDataContext";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,21 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Edit2 } from "lucide-react";
+import { Team } from "../hooks/useAppData";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { TeamLogoUploadDialog } from "@/components/TeamLogoUploadDialog";
 
 export default function TeamsPage() {
   return (
@@ -19,12 +34,33 @@ export default function TeamsPage() {
   );
 }
 
+const getTeamInitials = (name: string) => {
+  return name
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
+
 function TeamsContent() {
-  const { teams, addTeam, getTeamPlayers, getTeamManager, players, setManager, isAdmin } = useAppContext();
+  const { teams, addTeam, deleteTeam, updateTeam, getTeamPlayers, getTeamManager, players, setManager, isAdmin } = useAppContext();
   const [open, setOpen] = useState(false);
   const [managerDialog, setManagerDialog] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", stadium: "", founded: "", primaryColor: "#3b82f6", logoFile: null as File | null });
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [logoDialogOpen, setLogoDialogOpen] = useState(false);
+  const [selectedTeamForLogo, setSelectedTeamForLogo] = useState<Team | null>(null)
+
+  const handleUpdateTeam = async () => {
+    if (!editingTeam || !editingTeam.name.trim()) return;
+    setIsSubmitting(true);
+    await updateTeam(editingTeam.id, editingTeam);
+    setEditingTeam(null);
+    setIsSubmitting(false);
+  };
 
   const handleSubmit = async () => {
     if (!form.name.trim()) return;
@@ -112,18 +148,100 @@ function TeamsContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="glass-card rounded-xl overflow-hidden"
+              className="glass-card rounded-xl overflow-hidden relative"
             >
               <div className="h-2" style={{ backgroundColor: team.primaryColor }} />
+              <div className="absolute top-4 right-2 flex gap-1 z-10">
+                {isAdmin && (
+                  <>
+                    {/* Edit Button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={() => setEditingTeam(team)}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+
+                    {/* Delete Confirmation */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            {teamPlayers.length > 0 ? "Cannot Delete Team" : "Are you absolutely sure?"}
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {teamPlayers.length > 0 ? (
+                              <>
+                                The team <strong>{team.name}</strong> currently has <strong>{teamPlayers.length}</strong> players. 
+                                You must remove or reassign all players before this team can be deleted.
+                              </>
+                            ) : (
+                              <>
+                                This will permanently delete <strong>{team.name}</strong> and all associated data. This action cannot be undone.
+                              </>
+                            )}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>
+                            {teamPlayers.length > 0 ? "Close" : "Cancel"}
+                          </AlertDialogCancel>
+                          {teamPlayers.length === 0 && (
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={async () => {
+                                await deleteTeam(team.id);
+                              }}
+                            >
+                              Delete Team
+                            </AlertDialogAction>
+                          )}
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
+              </div>
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: team.primaryColor + "20" }}>
-                    <Shield className="w-6 h-6" style={{ color: team.primaryColor }} />
+                  <div 
+                    className="relative cursor-pointer" 
+                    onClick={() => {
+                      if (isAdmin) {
+                        setSelectedTeamForLogo(team);
+                        setLogoDialogOpen(true);
+                      }
+                    }}
+                  >
+                    <Avatar className="w-12 h-12 rounded-xl border-2 border-secondary shadow-sm">
+                      <AvatarImage src={team.logo || ""} alt={team.name} className="object-cover" />
+                      <AvatarFallback style={{ backgroundColor: team.primaryColor }} className="rounded-xl font-bold text-white">
+                        {getTeamInitials(team.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {/* Always show a small edit hint on mobile if admin */}
+                    {isAdmin && (
+                      <div className="absolute -bottom-1 -right-1 bg-primary text-white p-1 rounded-full border-2 border-background">
+                        <Upload className="w-2.5 h-2.5" />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <h3 className="font-display text-lg font-bold">{team.name}</h3>
                     <p className="text-xs text-muted-foreground">{team.stadium} · Est. {team.founded}</p>
                   </div>
+                  
                 </div>
 
                 <div className="flex items-center gap-4 text-sm mb-4">
@@ -170,6 +288,78 @@ function TeamsContent() {
           );
         })}
       </div>
+
+      <Dialog open={!!editingTeam} onOpenChange={(open) => !open && setEditingTeam(null)}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Edit Team — {editingTeam?.name}</DialogTitle>
+          </DialogHeader>
+          {editingTeam && (
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground">Team Name</label>
+                <Input 
+                  value={editingTeam.name} 
+                  onChange={(e) => setEditingTeam({...editingTeam, name: e.target.value})} 
+                  className="bg-secondary border-border" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground">Stadium</label>
+                <Input 
+                  value={editingTeam.stadium} 
+                  onChange={(e) => setEditingTeam({...editingTeam, stadium: e.target.value})} 
+                  className="bg-secondary border-border" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground">Year Founded</label>
+                <Input 
+                  value={editingTeam.founded} 
+                  onChange={(e) => setEditingTeam({...editingTeam, founded: e.target.value})} 
+                  className="bg-secondary border-border" 
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-muted-foreground">Team Color</label>
+                <input 
+                  type="color" 
+                  value={editingTeam.primaryColor} 
+                  onChange={(e) => setEditingTeam({...editingTeam, primaryColor: e.target.value})} 
+                  className="w-10 h-10 rounded cursor-pointer border-0" 
+                />
+              </div>
+              <Button onClick={handleUpdateTeam} className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Updating..." : "Save Changes"}
+              </Button>
+            </div>
+          )}
+          {/* <div className="pt-4 mt-4 border-t border-border">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">Danger Zone</p>
+            <Button 
+              variant="destructive" 
+              className="w-full gap-2"
+              onClick={async () => {
+                const { error } = await deleteTeam(editingTeam?.id as string);
+                if (error) {
+                  // You can replace this with a proper toast notification later
+                  alert(typeof error === 'string' ? error : "Failed to delete team");
+                } else {
+                  setEditingTeam(null);
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4" /> Delete Team
+            </Button>
+          </div> */}
+        </DialogContent>
+      </Dialog>
+
+      <TeamLogoUploadDialog 
+        team={selectedTeamForLogo} 
+        open={logoDialogOpen} 
+        onOpenChange={setLogoDialogOpen} 
+      />
     </div>
   );
 }

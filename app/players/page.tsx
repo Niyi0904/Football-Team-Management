@@ -312,7 +312,7 @@ function PlayersContent() {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["Goalkeeper", "Defender", "Midfielder", "Forward"].map((pos) => (
+                  {positions.map((pos) => (
                     <SelectItem key={pos} value={pos}>{pos}</SelectItem>
                   ))}
                 </SelectContent>

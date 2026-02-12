@@ -128,6 +128,42 @@ export function useAppData() {
     }
   };
 
+  const updateTeam = async (id: string, updates: Partial<Team>) => {
+    try {
+      const teamRef = doc(db, "teams", id);
+      const dbUpdates: any = { ...updates };
+
+      // Mapping frontend to database field names
+      if (updates.primaryColor) {
+        dbUpdates.primary_color = updates.primaryColor;
+        delete dbUpdates.primaryColor;
+      }
+
+      await updateDoc(teamRef, dbUpdates);
+      await fetchData();
+      return { error: null };
+    } catch (error) {
+      console.error("updateTeam error", error);
+      return { error };
+    }
+  };
+
+  const deleteTeam = async (teamId: string) => {
+    const hasPlayers = players.some((p) => p.teamId === teamId);
+    if (hasPlayers) {
+      // We return an object so the UI can handle the specific error message
+      return { error: "Cannot delete team with active players." };
+    }
+
+    try {
+      await deleteDoc(doc(db, "teams", teamId));
+      await fetchData(); // Refresh local state
+      return { error: null };
+    } catch (error) {
+      return { error: "Failed to delete from database" };
+    }
+  };
+
   const addPlayer = async (player: Omit<Player, "id">) => {
     try {
       await addDoc(collection(db, "players"), {
@@ -260,7 +296,7 @@ export function useAppData() {
 
   return {
     teams, players, records, loading,
-    addTeam, addPlayer, updatePlayer, deletePlayer, setManager,
+    addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, setManager,
     addRecord, updateRecord,
     getTeamPlayers, getTeamManager, getPlayerRecords, getPlayerStats, getTopScorers,
     refetch: fetchData,
