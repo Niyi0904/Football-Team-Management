@@ -43,6 +43,22 @@ const getInitials = (name: string) => {
     .slice(0, 2);
 };
 
+const positions = [
+  "⁠Goal Keeper (GK)", 
+  "Defender (DF)", 
+  "Midfielder (MF)", 
+  "Forward (FW)",
+  "⁠⁠Central Defenders (CB)",
+  "⁠⁠Right Back (RB)",
+  "Left Back (LB)",
+  "⁠⁠Left Wing (LW)",
+  "⁠Right Wing (RW)",
+  "⁠Striker (ST)",
+  "⁠Defensive Midfielder (DM)",
+  "⁠Attacking Midfielder (AM)",
+  "Central Midfielder (CM)"
+]
+
 function PlayersContent() {
   const { teams, players, addPlayer, updatePlayer, deletePlayer, getPlayerStats, isAdmin } = useAppContext();
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
@@ -131,7 +147,7 @@ function PlayersContent() {
                   <Select value={form.position} onValueChange={(v) => setForm({ ...form, position: v })}>
                     <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {["Goalkeeper", "Defender", "Midfielder", "Forward"].map((pos) => (
+                      {positions.map((pos) => (
                         <SelectItem key={pos} value={pos}>{pos}</SelectItem>
                       ))}
                     </SelectContent>
