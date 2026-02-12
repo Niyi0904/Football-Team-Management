@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Plus, Target, AlertTriangle } from "lucide-react";
+import { Users, Plus, Target, AlertTriangle, Edit2 } from "lucide-react";
 import { uploadProfileImage } from "@/lib/uploadImage";
 import { useAppContext } from "../context/AppDataContext";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Player } from "../hooks/useAppData";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function Players() {
   return (
@@ -20,8 +34,18 @@ export default function Players() {
   );
 }
 
+const getInitials = (name: string) => {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
+
 function PlayersContent() {
-  const { teams, players, addPlayer, getPlayerStats, isAdmin } = useAppContext();
+  const { teams, players, addPlayer, updatePlayer, deletePlayer, getPlayerStats, isAdmin } = useAppContext();
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [filterTeam, setFilterTeam] = useState<string>("all");
@@ -29,6 +53,21 @@ function PlayersContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = filterTeam === "all" ? players : players.filter((p) => p.teamId === filterTeam);
+
+  const handleUpdate = async () => {
+    if (!editingPlayer || !editingPlayer.name.trim()) return;
+    setIsSubmitting(true);
+    
+    await updatePlayer(editingPlayer.id, {
+      name: editingPlayer.name,
+      position: editingPlayer.position,
+      number: editingPlayer.number,
+      teamId: editingPlayer.teamId,
+    });
+
+    setEditingPlayer(null);
+    setIsSubmitting(false);
+  };
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.teamId) return;
@@ -139,9 +178,22 @@ function PlayersContent() {
               onClick={() => router.push(`/players/${player.id}`)}
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center font-display text-lg font-bold text-primary">
-                    {player.number}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="relative">
+                    <Avatar className="w-12 h-12 border-2 border-secondary">
+                      <AvatarImage src={player.photo || ""} alt={player.name} className="object-cover" />
+                      <AvatarFallback 
+                        style={{ backgroundColor: team?.primaryColor || 'var(--secondary)' }}
+                        className="font-display text-lg font-bold text-white"
+                      >
+                        {getInitials(player.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    {/* The Number Badge */}
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-background">
+                      {player.number}
+                    </div>
                   </div>
                   <div>
                     <h3 className="font-semibold text-sm">{player.name}</h3>
@@ -152,6 +204,55 @@ function PlayersContent() {
                   <span className="text-[10px] uppercase tracking-wider bg-accent/15 text-accent px-2 py-1 rounded-full font-semibold">
                     Manager
                   </span>
+                )}
+                {isAdmin && (
+                  <>
+                    {/* Edit Button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingPlayer(player);
+                      }}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+
+                    {/* Delete Confirmation */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => e.stopPropagation()} // Stop card click
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete **{player.name}** and remove them from their team. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={async () => {
+                              await deletePlayer(player.id);
+                            }}
+                          >
+                            Delete Player
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
                 )}
               </div>
               <div className="grid grid-cols-4 gap-2 mt-4">
@@ -176,6 +277,53 @@ function PlayersContent() {
           );
         })}
       </div>
+
+      <Dialog open={!!editingPlayer} onOpenChange={(open) => !open && setEditingPlayer(null)}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Edit Player Details</DialogTitle>
+          </DialogHeader>
+          {editingPlayer && (
+            <div className="space-y-4 mt-4">
+              <Input 
+                placeholder="Player Name" 
+                value={editingPlayer.name} 
+                onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })} 
+              />
+              <Select 
+                value={editingPlayer.position} 
+                onValueChange={(v) => setEditingPlayer({ ...editingPlayer, position: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["Goalkeeper", "Defender", "Midfielder", "Forward"].map((pos) => (
+                    <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input 
+                type="number" 
+                value={editingPlayer.number} 
+                onChange={(e) => setEditingPlayer({ ...editingPlayer, number: parseInt(e.target.value) || 0 })} 
+              />
+              <Select 
+                value={editingPlayer.teamId} 
+                onValueChange={(v) => setEditingPlayer({ ...editingPlayer, teamId: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={handleUpdate} className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

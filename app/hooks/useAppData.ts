@@ -9,6 +9,7 @@ import {
   query,
   where,
   writeBatch,
+  deleteDoc,
 } from "firebase/firestore";
 
 export interface Player {
@@ -145,6 +146,41 @@ export function useAppData() {
     }
   };
 
+  const updatePlayer = async (id: string, updates: Partial<Player>) => {
+    try {
+      const playerRef = doc(db, "players", id);
+      // Map camelCase to Firestore snake_case if necessary
+      const dbUpdates: any = { ...updates };
+      if (updates.teamId) {
+        dbUpdates.team_id = updates.teamId;
+        delete dbUpdates.teamId;
+      }
+      if (updates.isManager !== undefined) {
+        dbUpdates.is_manager = updates.isManager;
+        delete dbUpdates.isManager;
+      }
+
+      await updateDoc(playerRef, dbUpdates);
+      await fetchData();
+      return { error: null };
+    } catch (error) {
+      console.error("updatePlayer error", error);
+      return { error };
+    }
+  };
+
+  const deletePlayer = async (id: string) => {
+    try {
+      const playerRef = doc(db, "players", id);
+      await deleteDoc(playerRef); // Make sure to import deleteDoc from firebase/firestore
+      await fetchData();
+      return { error: null };
+    } catch (error) {
+      console.error("deletePlayer error", error);
+      return { error };
+    }
+  };
+
   const setManager = async (teamId: string, playerId: string) => {
     try {
       // Unset all managers for the team
@@ -224,7 +260,7 @@ export function useAppData() {
 
   return {
     teams, players, records, loading,
-    addTeam, addPlayer, setManager,
+    addTeam, addPlayer, updatePlayer, deletePlayer, setManager,
     addRecord, updateRecord,
     getTeamPlayers, getTeamManager, getPlayerRecords, getPlayerStats, getTopScorers,
     refetch: fetchData,
