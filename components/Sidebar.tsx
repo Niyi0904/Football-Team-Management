@@ -12,6 +12,7 @@ import {
   Trophy,
   Menu,
   X,
+  TrendingUp,
 } from "lucide-react";
 import { useAppContext } from "@/app/context/AppDataContext";
 import { Button } from "@/components/ui/button";
@@ -21,8 +22,9 @@ const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/teams", label: "Teams", icon: Shield },
   { path: "/players", label: "Players", icon: Users },
-  { path: "/match-records", label: "Match Records", icon: ClipboardList },
+  { path: "/stats", label: "Stats", icon: TrendingUp },
   { path: "/standings", label: "Standings", icon: Trophy },
+  { path: "/matches", label: "Matches", icon: ClipboardList },
 ];
 
 const adminNavItems = [
