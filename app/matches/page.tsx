@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ClipboardList, Clock, Calendar, Plus, Trophy, MoreVertical, Trash2, Edit2 } from "lucide-react";
+import { ClipboardList, Clock, Calendar, Plus, Trophy, MoreVertical, Trash2, Edit2, Sparkles } from "lucide-react";
 import { useAppContext } from "@/app/context/AppDataContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -36,15 +36,111 @@ export default function MatchRecordsPage() {
   );
 }
 
+const getNextTuesdays = (count: number) => {
+  const dates = [];
+  let d = new Date();
+  // Find the first Tuesday from now
+  d.setDate(d.getDate() + ((7 - d.getDay() + 2) % 7 || 7));
+  
+  for (let i = 0; i < count; i++) {
+    dates.push(new Date(d).toISOString().split('T')[0]); 
+    d.setDate(d.getDate() + 7);
+  }
+  return dates;
+};
+
+const shuffle = (array: any[]) => {
+  const newArr = [...array];
+  for (let i = newArr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+  }
+  return newArr;
+};
+
+const generateFixtures = (teams: any[]) => {
+  const fixtures = [];
+  const teamList = [...teams];
+  if (teamList.length % 2 !== 0) teamList.push({ id: 'bye', name: 'BYE' });
+
+  const numTeams = teamList.length;
+  const tuesdays = getNextTuesdays(5);
+  const timeSlots = ["8:00", "10:00", "12:00", "14:00"];
+
+  for (let weekIndex = 0; weekIndex < 5; weekIndex++) {
+    const currentTuesday = tuesdays[weekIndex];
+    const shuffledTimes = shuffle(timeSlots);
+    let matchInWeekCounter = 0;
+
+    for (let i = 0; i < numTeams / 2; i++) {
+      let home = teamList[i];
+      let away = teamList[numTeams - 1 - i];
+
+      if (weekIndex % 2 === 1) [home, away] = [away, home];
+
+      if (home.id !== 'bye' && away.id !== 'bye') {
+        fixtures.push({
+          homeTeamId: home.id,
+          awayTeamId: away.id,
+          homeScore: 0,         // Matches your state
+          awayScore: 0,         // Matches your state
+          homeAssists: 0,
+          awayAssists: 0,
+          homeYellows: 0,
+          awayYellows: 0,
+          homeReds: 0,
+          awayReds: 0,
+          minutesPlayed: 90,
+          matchDay: weekIndex + 1,
+          date: currentTuesday, // "YYYY-MM-DD"
+          time: shuffledTimes[matchInWeekCounter % shuffledTimes.length],
+          league: "Seasonal League",
+          status: "upcoming"    // Generator sets to upcoming, not played
+        });
+        matchInWeekCounter++;
+      }
+    }
+    teamList.splice(1, 0, teamList.pop()!);
+  }
+  return fixtures;
+};
+
 
 
 function MatchRecordsContent() {
-  const { matches, teams, isAdmin, deleteMatch } = useAppContext();
+  const { matches, teams, isAdmin, deleteMatch, addMatch } = useAppContext();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [matchToEdit, setMatchToEdit] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const exportRef = useRef<HTMLDivElement>(null);
+
+  const handleAutoGenerate = async () => {
+    if (teams.length < 2) return alert("Add more teams first!");
+    
+    const confirmGen = confirm("Generate 5 weeks of Tuesday fixtures? This will add them to your records.");
+    if (!confirmGen) return;
+
+    setIsGenerating(true);
+    const newFixtures = generateFixtures(teams);
+
+    try {
+      // Loop through and save each
+      for (const fixture of newFixtures) {
+        await addMatch(fixture);
+      }
+      alert("Successfully generated 5 weeks of fixtures!");
+      setFilter('upcoming'); // Switch filter to see new matches
+    } catch (error) {
+      console.error(error);
+      alert("Failed to save some fixtures.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const appBg = getComputedStyle(document.body).backgroundColor;
 
   const downloadSpecificDay = async (dayId: string) => {
     const element = document.getElementById(`day-section-${dayId}`);
@@ -53,7 +149,7 @@ function MatchRecordsContent() {
     try {
       const dataUrl = await domToPng(element, {
         scale: 3, // High quality for sharing
-        backgroundColor: 'white', // Ensures no transparency issues on WhatsApp/Discord
+        backgroundColor: appBg, // Ensures no transparency issues on WhatsApp/Discord
         quality: 1,
       });
 
@@ -72,7 +168,7 @@ function MatchRecordsContent() {
     try {
       const dataUrl = await domToPng(exportRef.current, {
         scale: 2,
-        backgroundColor: 'white',
+        backgroundColor: appBg,
       });
 
       const link = document.createElement('a');
@@ -129,10 +225,27 @@ function MatchRecordsContent() {
             ))}
           </div>
 
-          {isAdmin && (
+          {/* {isAdmin && (
             <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
               <Plus className="w-4 h-4" /> Add Match
             </Button>
+          )} */}
+
+          {isAdmin && (
+            <>
+              <Button 
+                variant="secondary" 
+                onClick={handleAutoGenerate} 
+                disabled={isGenerating}
+                className="gap-2 border-primary/20"
+              >
+                <Sparkles className={cn("w-4 h-4 text-primary", isGenerating && "animate-spin")} />
+                {isGenerating ? "Generating..." : "Auto-Gen 5 Weeks"}
+              </Button>
+              <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
+                <Plus className="w-4 h-4" /> Add Match
+              </Button>
+            </>
           )}
 
           <Button variant="outline" onClick={downloadMatchWeek} className="gap-2">

@@ -92,7 +92,7 @@ function DashboardContent() {
         <div>
           <h1 className="text-4xl font-black text-foreground uppercase tracking-tighter">Season Dashboard</h1>
           <p className="text-muted-foreground mt-1 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-primary" /> Live statistics for the 2024/25 League
+            <Activity className="w-4 h-4 text-primary" /> Live statistics for the 2026/27 League
           </p>
         </div>
         <div className="flex items-center gap-4">
