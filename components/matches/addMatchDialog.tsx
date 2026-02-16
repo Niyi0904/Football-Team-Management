@@ -179,7 +179,7 @@ export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
 
                   {/* MATCH SETTINGS */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-xl bg-primary/5">
-                    <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-primary/70">Match Day</label>
+                    <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-primary/70">Match Week</label>
                       <Input type="number" value={matchForm.matchDay} onChange={(e) => setMatchForm({...matchForm, matchDay: +e.target.value})} />
                     </div>
                     <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black uppercase text-primary/70">Date</label>

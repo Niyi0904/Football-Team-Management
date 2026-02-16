@@ -18,6 +18,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { Match } from "../hooks/useAppData";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { useRef } from "react";
+import { domToPng } from 'modern-screenshot';
+import { Download } from "lucide-react";
 
 export default function MatchRecordsPage() {
   return (
@@ -35,7 +44,46 @@ function MatchRecordsContent() {
   const [matchToEdit, setMatchToEdit] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  const downloadSpecificDay = async (dayId: string) => {
+    const element = document.getElementById(`day-section-${dayId}`);
+    if (!element) return;
+
+    try {
+      const dataUrl = await domToPng(element, {
+        scale: 3, // High quality for sharing
+        backgroundColor: 'white', // Ensures no transparency issues on WhatsApp/Discord
+        quality: 1,
+      });
+
+      const link = document.createElement('a');
+      link.download = `Match-Week-${dayId}-Report.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Export failed", err);
+    }
+  };
+
+  const downloadMatchWeek = async () => {
+    if (!exportRef.current) return;
+    
+    try {
+      const dataUrl = await domToPng(exportRef.current, {
+        scale: 2,
+        backgroundColor: 'white',
+      });
+
+      const link = document.createElement('a');
+      link.download = `Full-Match-Records.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Full export failed", err);
+    }
+  };
+
   // New Filter State
   const [filter, setFilter] = useState<'all' | 'played' | 'upcoming'>('all');
 
@@ -86,11 +134,16 @@ function MatchRecordsContent() {
               <Plus className="w-4 h-4" /> Add Match
             </Button>
           )}
+
+          <Button variant="outline" onClick={downloadMatchWeek} className="gap-2">
+            <Download className="w-4 h-4" /> Download UI
+          </Button>
         </div>
+        
       </div>
 
       {/* MATCH LIST SECTION */}
-      <section className="space-y-6">
+      <section className="space-y-6" ref={exportRef}>
         <AnimatePresence mode="popLayout">
           {matchDays.length === 0 ? (
             <motion.div 
@@ -102,34 +155,59 @@ function MatchRecordsContent() {
               <p className="text-muted-foreground">No matches found for this filter.</p>
             </motion.div>
           ) : (
-            matchDays.map((day) => (
-              <motion.div 
-                key={day} 
-                layout 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="space-y-4"
-              >
-                <div className="flex items-center gap-4">
-                  <Badge variant="outline" className="px-3 py-1 font-bold bg-background shadow-sm">Day {day}</Badge>
-                  <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
-                </div>
+            <Accordion type="multiple" defaultValue={[matchDays[0]]} className="space-y-6">
+              {matchDays.map((day) => (
+                <AccordionItem key={day} value={day} className="border-none">
+                  <motion.div 
+                    key={day} 
+                    id={`day-section-${day}`}
+                    layout 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="space-y-4 rounded-3xl"
+                  >
+                    <div className="flex items-center justify-between gap-4 w-full">
+                      <AccordionTrigger className="hover:no-underline py-0 group">
+                        <div className="flex items-center gap-4 w-full">
+                          <Badge variant="outline" className="px-3 py-1 font-bold bg-background shadow-sm transition-colors group-data-[state=open]:border-primary group-data-[state=open]:text-primary">
+                            Match Week {day}
+                          </Badge>
+                        </div>
+                      </AccordionTrigger>
+                          <div className="h-px flex-1 bg-border" />
 
-                <div className="grid gap-4">
-                  {groupedMatches[day].map((match: any) => (
-                    <MatchCard 
-                      key={match.id} 
-                      match={match} 
-                      teams={teams} 
-                      isAdmin={isAdmin} 
-                      onEdit={(m: Match) => { setMatchToEdit(m); setIsEditDialogOpen(true); }}
-                      onDelete={deleteMatch}
-                    />
-                  ))}
-                </div>
-              </motion.div>
-            ))
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevents the accordion from toggling
+                          downloadSpecificDay(day);
+                        }}
+                        className="text-[10px] font-bold uppercase tracking-tighter"
+                      >
+                        <Download className="w-3 h-3 mr-1" />
+                      </Button>
+                    </div>
+    
+                    <AccordionContent className="pt-4 pb-2 px-1">
+                      <div className="grid gap-4">
+                        {groupedMatches[day].map((match: any) => (
+                          <MatchCard 
+                            key={match.id} 
+                            match={match} 
+                            teams={teams} 
+                            isAdmin={isAdmin} 
+                            onEdit={(m: Match) => { setMatchToEdit(m); setIsEditDialogOpen(true); }}
+                            onDelete={deleteMatch}
+                          />
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </motion.div>
+                </AccordionItem>
+              ))}
+            </Accordion>
           )}
         </AnimatePresence>
       </section>
