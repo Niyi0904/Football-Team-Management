@@ -15,11 +15,14 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface AddMatchDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
 
 export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
   const { teams, players, addMatch, recordMatchStats } = useAppContext();
@@ -34,6 +37,7 @@ export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
     homeReds: 0, awayReds: 0,
     minutesPlayed: 90,
     matchDay: 1,
+    time: "19:00", // Add this field
     date: new Date(),
     league: "Seasonal League",
     status: "played" 
@@ -93,6 +97,7 @@ export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
       homeReds: 0, awayReds: 0,
       minutesPlayed: 90,
       matchDay: 1,
+      time: "19:00", // Add this field
       date: new Date(),
       league: "Seasonal League",
       status: "played"
@@ -187,6 +192,15 @@ export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
                           <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={matchForm.date} onSelect={(d) => d && setMatchForm({...matchForm, date: d})} initialFocus /></PopoverContent>
                         </Popover>
                     </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase text-primary/70">Kickoff Time</label>
+                      <Input 
+                        type="time" 
+                        value={matchForm.time} 
+                        onChange={(e) => setMatchForm({...matchForm, time: e.target.value})} 
+                        className="bg-background"
+                      />
+                    </div>
                     <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-primary/70">Minutes</label>
                       <Input type="number" value={matchForm.minutesPlayed} onChange={(e) => setMatchForm({...matchForm, minutesPlayed: +e.target.value})} />
                     </div>
@@ -201,19 +215,25 @@ export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-primary uppercase border-b">{homeTeam?.name}</p>
                         {Array.from({ length: matchForm.homeScore }).map((_, i) => (
-                          <Select key={`hg-${i}`} onValueChange={(v) => updatePlayerList('goals', i, v)}>
-                            <SelectTrigger><SelectValue placeholder="Scorer" /></SelectTrigger>
-                            <SelectContent>{homePlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                          <SearchablePlayerSelect
+                            key={`hg-${i}`}
+                            value={playerStats.goals[i]}
+                            onChange={(v: string) => updatePlayerList('goals', i, v)}
+                            players={homePlayers}
+                            placeholder="Scorer"
+                          />
                         ))}
                       </div>
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-primary uppercase border-b">{awayTeam?.name}</p>
                         {Array.from({ length: matchForm.awayScore }).map((_, i) => (
-                          <Select key={`ag-${i}`} onValueChange={(v) => updatePlayerList('goals', matchForm.homeScore + i, v)}>
-                            <SelectTrigger><SelectValue placeholder="Scorer" /></SelectTrigger>
-                            <SelectContent>{awayPlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                          <SearchablePlayerSelect
+                            key={`ag-${i}`}
+                            value={playerStats.goals[matchForm.homeScore + i]}
+                            onChange={(v: string) => updatePlayerList('goals', matchForm.homeScore + i, v)}
+                            players={awayPlayers}
+                            placeholder="Scorer"
+                          />
                         ))}
                       </div>
                     </div>
@@ -226,19 +246,25 @@ export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-blue-500 uppercase border-b">{homeTeam?.name}</p>
                         {Array.from({ length: matchForm.homeAssists }).map((_, i) => (
-                          <Select key={`ha-${i}`} onValueChange={(v) => updatePlayerList('assists', i, v)}>
-                            <SelectTrigger><SelectValue placeholder="Assister" /></SelectTrigger>
-                            <SelectContent>{homePlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                          <SearchablePlayerSelect
+                            key={`ha-${i}`}
+                            value={playerStats.assists[i]}
+                            onChange={(v: string) => updatePlayerList('assists', i, v)}
+                            players={homePlayers}
+                            placeholder="Assister"
+                          />
                         ))}
                       </div>
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-blue-500 uppercase border-b">{awayTeam?.name}</p>
                         {Array.from({ length: matchForm.awayAssists }).map((_, i) => (
-                          <Select key={`aa-${i}`} onValueChange={(v) => updatePlayerList('assists', matchForm.homeAssists + i, v)}>
-                            <SelectTrigger><SelectValue placeholder="Assister" /></SelectTrigger>
-                            <SelectContent>{awayPlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                          <SearchablePlayerSelect
+                            key={`aa-${i}`}
+                            value={playerStats.assists[matchForm.homeAssists + i]}
+                            onChange={(v: string) => updatePlayerList('assists', matchForm.homeAssists + i, v)}
+                            players={awayPlayers}
+                            placeholder="Assister"
+                          />
                         ))}
                       </div>
                     </div>
@@ -251,19 +277,25 @@ export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-yellow-600 uppercase border-b">{homeTeam?.name}</p>
                         {Array.from({ length: matchForm.homeYellows }).map((_, i) => (
-                          <Select key={`hy-${i}`} onValueChange={(v) => updatePlayerList('yellows', i, v)}>
-                            <SelectTrigger><SelectValue placeholder="Player" /></SelectTrigger>
-                            <SelectContent>{homePlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                          <SearchablePlayerSelect
+                            key={`hy-${i}`}
+                            value={playerStats.yellows[i]}
+                            onChange={(v: string) => updatePlayerList('yellows', i, v)}
+                            players={homePlayers}
+                            placeholder="Select Player"
+                          />
                         ))}
                       </div>
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-yellow-600 uppercase border-b">{awayTeam?.name}</p>
                         {Array.from({ length: matchForm.awayYellows }).map((_, i) => (
-                          <Select key={`ay-${i}`} onValueChange={(v) => updatePlayerList('yellows', matchForm.homeYellows + i, v)}>
-                            <SelectTrigger><SelectValue placeholder="Player" /></SelectTrigger>
-                            <SelectContent>{awayPlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                          <SearchablePlayerSelect
+                            key={`ay-${i}`}
+                            value={playerStats.yellows[matchForm.homeYellows + i]}
+                            onChange={(v: string) => updatePlayerList('yellows', matchForm.homeYellows + i, v)}
+                            players={awayPlayers}
+                            placeholder="Select Player"
+                          />
                         ))}
                       </div>
                     </div>
@@ -276,19 +308,25 @@ export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-red-600 uppercase border-b">{homeTeam?.name}</p>
                         {Array.from({ length: matchForm.homeReds }).map((_, i) => (
-                          <Select key={`hr-${i}`} onValueChange={(v) => updatePlayerList('reds', i, v)}>
-                            <SelectTrigger><SelectValue placeholder="Player" /></SelectTrigger>
-                            <SelectContent>{homePlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                          <SearchablePlayerSelect
+                            key={`hr-${i}`}
+                            value={playerStats.reds[i]}
+                            onChange={(v: string) => updatePlayerList('reds', i, v)}
+                            players={homePlayers}
+                            placeholder="Select Player"
+                          />
                         ))}
                       </div>
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-red-600 uppercase border-b">{awayTeam?.name}</p>
                         {Array.from({ length: matchForm.awayReds }).map((_, i) => (
-                          <Select key={`ar-${i}`} onValueChange={(v) => updatePlayerList('reds', matchForm.homeReds + i, v)}>
-                            <SelectTrigger><SelectValue placeholder="Player" /></SelectTrigger>
-                            <SelectContent>{awayPlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                          <SearchablePlayerSelect
+                            key={`ar-${i}`}
+                            value={playerStats.reds[matchForm.homeReds + i]}
+                            onChange={(v: string) => updatePlayerList('reds', matchForm.homeReds + i, v)}
+                            players={awayPlayers}
+                            placeholder="Select Player"
+                          />
                         ))}
                       </div>
                     </div>
@@ -313,5 +351,49 @@ export function AddMatchDialog({ open, onOpenChange }: AddMatchDialogProps) {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SearchablePlayerSelect({ value, onChange, players, placeholder }: any) {
+  const [open, setOpen] = useState(false);
+  const selectedPlayer = players.find((p: any) => p.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          {selectedPlayer ? selectedPlayer.name : placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search player..." />
+          <CommandList>
+            <CommandEmpty>No player found.</CommandEmpty>
+            <CommandGroup>
+              {players.map((p: any) => (
+                <CommandItem
+                  key={p.id}
+                  value={p.name} // Command uses this for searching
+                  onSelect={() => {
+                    onChange(p.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === p.id ? "opacity-100" : "opacity-0")} />
+                  {p.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

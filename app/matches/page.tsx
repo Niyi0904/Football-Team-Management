@@ -27,11 +27,14 @@ export default function MatchRecordsPage() {
   );
 }
 
+
+
 function MatchRecordsContent() {
   const { matches, teams, isAdmin, deleteMatch } = useAppContext();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [matchToEdit, setMatchToEdit] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
   
   // New Filter State
   const [filter, setFilter] = useState<'all' | 'played' | 'upcoming'>('all');
@@ -143,10 +146,22 @@ function MatchRecordsContent() {
   );
 }
 
+const formatTime12h = (timeStr: string) => {
+  if (!timeStr) return "";
+  // Check if it's already in a format like "14:30"
+  const [hours, minutes] = timeStr.split(':');
+  const h = parseInt(hours);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hours12 = h % 12 || 12;
+  return `${hours12}:${minutes} ${ampm}`;
+};
+
 function MatchCard({ match, teams, isAdmin, onEdit, onDelete }: any) {
   const homeTeam = teams.find((t: any) => t.id === match.homeTeamId);
   const awayTeam = teams.find((t: any) => t.id === match.awayTeamId);
   const isPlayed = match.status === 'played';
+  const formattedTime = useMemo(() => formatTime12h(match.time), [match.time]);
+
 
   return (
     <motion.div
@@ -197,7 +212,7 @@ function MatchCard({ match, teams, isAdmin, onEdit, onDelete }: any) {
         </div>
 
         {/* Scoreboard or VS Badge */}
-        <div className="flex flex-col items-center gap-3">
+        {/* <div className="flex flex-col items-center gap-3">
           {isPlayed ? (
             <div className="flex items-center gap-5 bg-secondary/40 px-6 py-2.5 rounded-2xl border border-border/50">
               <span className="text-3xl font-black tabular-nums tracking-tight">{match.homeScore}</span>
@@ -220,6 +235,42 @@ function MatchCard({ match, teams, isAdmin, onEdit, onDelete }: any) {
             )}
             <span className="opacity-30">•</span>
             <span>{match.league || "Seasonal League"}</span>
+          </div>
+        </div> */}
+
+        <div className="flex flex-col items-center gap-3">
+          {isPlayed ? (
+            <div className="flex items-center gap-5 bg-secondary/40 px-6 py-2.5 rounded-2xl border border-border/50">
+              <span className="text-3xl font-black tabular-nums tracking-tight">{match.homeScore}</span>
+              <span className="text-muted-foreground/50 font-light text-2xl">:</span>
+              <span className="text-3xl font-black tabular-nums tracking-tight">{match.awayScore}</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <div className="px-6 py-2 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-black uppercase tracking-[0.2em]">
+                Scheduled
+              </div>
+              {/* DISPLAY TIME FOR UPCOMING MATCHES */}
+              {match.time && (
+                <span className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                  <Clock className="w-3.5 h-3.5 text-primary" /> 
+                  {formattedTime}
+                </span>
+              )}
+            </div>
+          )}
+          
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
+            {isPlayed ? (
+              <span className="flex items-center gap-1.5 bg-secondary/50 px-2 py-0.5 rounded text-primary">
+                <Clock className="w-3 h-3" /> {match.minutesPlayed}'
+              </span>
+            ) : (
+              <span className="text-primary">Match Day {match.matchDay}</span>
+            )}
+            <span className="opacity-30">•</span>
+            {/* ADDING TIME HERE AS WELL FOR PLAYED MATCHES IF DESIRED */}
+            <span>{formattedTime ? `${formattedTime} • ` : ""}{match.league || "Seasonal League"}</span>
           </div>
         </div>
 

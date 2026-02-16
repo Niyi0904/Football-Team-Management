@@ -63,6 +63,7 @@ export interface Match {
   minutesPlayed: number;
   league: string;
   createdAt: any;
+  time?: string;
   status: 'upcoming' | 'played';
   scheduledDate?: string;
 }
