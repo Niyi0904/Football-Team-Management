@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ClipboardList, Clock, Calendar, Plus, Trophy, MoreVertical, Trash2, Edit2, Sparkles } from "lucide-react";
+import { ClipboardList, Clock, Calendar, Plus, Trophy, MoreVertical, Trash2, Edit2, Sparkles, AlertTriangle } from "lucide-react";
 import { useAppContext } from "@/app/context/AppDataContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,10 @@ import {
 import { useRef } from "react";
 import { domToPng } from 'modern-screenshot';
 import { Download } from "lucide-react";
+import { FixtureLoadingOverlay } from "@/components/FixtureLoadingOverlay";
+import { DeleteLoadingOverlay } from "@/components/DeleteLoadingOverlay";
+import { GenerateFixturesDialog } from "@/components/GenerateFixturesDialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function MatchRecordsPage() {
   return (
@@ -58,16 +62,16 @@ const shuffle = (array: any[]) => {
   return newArr;
 };
 
-const generateFixtures = (teams: any[]) => {
+const generateFixtures = (teams: any[], weekCount: number) => {
   const fixtures = [];
   const teamList = [...teams];
   if (teamList.length % 2 !== 0) teamList.push({ id: 'bye', name: 'BYE' });
 
   const numTeams = teamList.length;
-  const tuesdays = getNextTuesdays(5);
+  const tuesdays = getNextTuesdays(weekCount); // Dynamic count
   const timeSlots = ["8:00", "10:00", "12:00", "14:00"];
 
-  for (let weekIndex = 0; weekIndex < 5; weekIndex++) {
+  for (let weekIndex = 0; weekIndex < weekCount; weekIndex++) {
     const currentTuesday = tuesdays[weekIndex];
     const shuffledTimes = shuffle(timeSlots);
     let matchInWeekCounter = 0;
@@ -113,17 +117,20 @@ function MatchRecordsContent() {
   const [matchToEdit, setMatchToEdit] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isGenDialogOpen, setIsGenDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const exportRef = useRef<HTMLDivElement>(null);
 
-  const handleAutoGenerate = async () => {
+  const handleAutoGenerate = async (weekCount: number) => {
     if (teams.length < 2) return alert("Add more teams first!");
     
-    const confirmGen = confirm("Generate 5 weeks of Tuesday fixtures? This will add them to your records.");
+    const confirmGen = confirm(`Generate ${weekCount} weeks of Tuesday fixtures? This will add them to your records.`);
     if (!confirmGen) return;
 
     setIsGenerating(true);
-    const newFixtures = generateFixtures(teams);
+    const newFixtures = generateFixtures(teams, weekCount);
 
     try {
       // Loop through and save each
@@ -137,6 +144,58 @@ function MatchRecordsContent() {
       alert("Failed to save some fixtures.");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleDeleteAllWeeks = async () => {
+    if (matches.length === 0) {
+      setIsDeleteDialogOpen(false)
+      return alert("No matches to delete!");
+    } 
+
+    const confirmDelete = confirm(
+      "DANGER: This will delete EVERY match fixture in the database. This action cannot be undone. Proceed?"
+    );
+
+    if (!confirmDelete) return;
+
+    setIsDeleting(true); // Triggers your Red Overlay
+    try {
+      // Delete every single match in the records
+      for (const match of matches) {
+        await deleteMatch(match.id);
+      }
+      alert("All match records have been cleared.");
+    } catch (error) {
+      console.error("Failed to clear database:", error);
+      alert("An error occurred while deleting some records.");
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false)
+    }
+  };
+
+  const handleDeleteMatchWeek = async (day: string) => {
+    const matchesInWeek = groupedMatches[day];
+    
+    const confirmDelete = confirm(
+      `Are you sure you want to delete all ${matchesInWeek.length} fixtures for Match Week ${day}?`
+    );
+    
+    if (!confirmDelete) return;
+
+    setIsDeleting(true); // START OVERLAY
+    try {
+      // Delete all matches in this week
+      for (const match of matchesInWeek) {
+        await deleteMatch(match.id);
+      }
+      alert(`Match Week ${day} cleared.`);
+    } catch (error) {
+      console.error("Failed to delete week:", error);
+      alert("Some matches could not be deleted.");
+    } finally {
+      setIsDeleting(false); // STOP OVERLAY
     }
   };
 
@@ -201,6 +260,27 @@ function MatchRecordsContent() {
 
   return (
     <div className="space-y-10 pb-20">
+      <AnimatePresence>
+        {isGenerating && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <FixtureLoadingOverlay />
+          </motion.div>
+        )}
+
+        {isDeleting && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+          >
+            <DeleteLoadingOverlay message="Clearing Week Fixtures" />
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
@@ -225,32 +305,70 @@ function MatchRecordsContent() {
             ))}
           </div>
 
-          {/* {isAdmin && (
-            <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
-              <Plus className="w-4 h-4" /> Add Match
-            </Button>
-          )} */}
-
           {isAdmin && (
             <>
-              <Button 
-                variant="secondary" 
-                onClick={handleAutoGenerate} 
-                disabled={isGenerating}
-                className="gap-2 border-primary/20"
-              >
-                <Sparkles className={cn("w-4 h-4 text-primary", isGenerating && "animate-spin")} />
-                {isGenerating ? "Generating..." : "Auto-Gen 5 Weeks"}
-              </Button>
-              <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
-                <Plus className="w-4 h-4" /> Add Match
-              </Button>
+              {/* MOBILE VIEW: Add Match + Dropdown Menu */}
+              <div className="flex md:hidden items-center gap-2">
+                <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
+                  <Plus className="w-4 h-4" /> Add Match
+                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-10 w-10">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => setIsGenDialogOpen(true)} disabled={isGenerating}>
+                      <Sparkles className="w-4 h-4 mr-2 text-primary" /> Auto-Gen Fixtures
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={downloadMatchWeek}>
+                      <Download className="w-4 h-4 mr-2" /> Download UI
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setIsDeleteDialogOpen(true)} 
+                      disabled={isDeleting || isGenerating}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" /> Clear All
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* DESKTOP VIEW: Full Horizontal Row */}
+              <div className="hidden md:flex items-center gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  disabled={isDeleting || isGenerating}
+                  className="gap-2 border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear All
+                </Button>
+
+                <Button 
+                  variant="secondary" 
+                  onClick={() => setIsGenDialogOpen(true)} 
+                  disabled={isGenerating}
+                  className="gap-2 border-primary/20"
+                >
+                  <Sparkles className={cn("w-4 h-4 text-primary", isGenerating && "animate-spin")} />
+                  {isGenerating ? "Generating..." : "Auto-Gen Fixtures"}
+                </Button>
+
+                <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
+                  <Plus className="w-4 h-4" /> Add Match
+                </Button>
+
+                <Button variant="outline" onClick={downloadMatchWeek} className="gap-2">
+                  <Download className="w-4 h-4" /> Download UI
+                </Button>
+              </div>
             </>
           )}
-
-          <Button variant="outline" onClick={downloadMatchWeek} className="gap-2">
-            <Download className="w-4 h-4" /> Download UI
-          </Button>
         </div>
         
       </div>
@@ -288,19 +406,35 @@ function MatchRecordsContent() {
                           </Badge>
                         </div>
                       </AccordionTrigger>
-                          <div className="h-px flex-1 bg-border" />
+                      <div className="h-px flex-1 bg-border" />
 
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevents the accordion from toggling
-                          downloadSpecificDay(day);
-                        }}
-                        className="text-[10px] font-bold uppercase tracking-tighter"
-                      >
-                        <Download className="w-3 h-3 mr-1" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevents the accordion from toggling
+                            downloadSpecificDay(day);
+                          }}
+                          className="text-[10px] font-bold uppercase tracking-tighter"
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                        </Button>
+
+                        {isAdmin && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteMatchWeek(day);
+                            }}
+                            className="h-8 w-8 p-0 hover:text-destructive border-destructive/20 hover:bg-destructive/10 hover:border-destructive text-destructive transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
     
                     <AccordionContent className="pt-4 pb-2 px-1">
@@ -333,6 +467,30 @@ function MatchRecordsContent() {
           onOpenChange={setIsEditDialogOpen} 
         />
       )}
+      <GenerateFixturesDialog 
+        open={isGenDialogOpen} 
+        onOpenChange={setIsGenDialogOpen} 
+        onConfirm={handleAutoGenerate} 
+      />
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="border-destructive/50">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" /> Extreme Action Required
+            </DialogTitle>
+            <DialogDescription>
+              You are about to wipe the entire season's fixtures. This will delete all 
+              <strong> {matches.length} matches</strong> permanently.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteAllWeeks}>
+              Yes, Delete Everything
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/Toaster";
 import { AppDataProvider } from "./context/AppDataContext";
 import Sidebar from "@/components/Sidebar";
+import { SpeedInsights } from "@vercel/speed-insights/next"
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,7 +44,10 @@ export default function RootLayout({
         <AppDataProvider>
           <TooltipProvider>
             <Toaster />
-            <Sidebar>{children}</Sidebar>
+            <Sidebar>
+              {children}
+              <SpeedInsights/>
+            </Sidebar>
           </TooltipProvider>
         </AppDataProvider>
       </body>
