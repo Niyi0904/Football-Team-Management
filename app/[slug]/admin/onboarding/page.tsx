@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/app/hooks/use-toast';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/redux/store';
 
 export default function OnboardingPage() {
   return (
@@ -24,6 +26,8 @@ export default function OnboardingPage() {
 function OnboardingContent() {
   const { isAdmin, user } = useAppContext();
   const { toast } = useToast();
+
+  const { id: leagueId, leagueName, logoUrl } = useSelector((state:RootState) => state.league);
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'user'>('user');
@@ -38,21 +42,20 @@ function OnboardingContent() {
   const [selectedUserRole, setSelectedUserRole] = useState<string | null>(null);
   const [changingRoleUserId, setChangingRoleUserId] = useState<string | null>(null);
 
-  // Fetch data on mount
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && leagueId) {
       fetchPendingInvites();
       fetchUsers();
     }
-  }, [isAdmin]);
+  }, [isAdmin, leagueId]);
 
   const fetchPendingInvites = async () => {
-    const invites = await getPendingInvites();
+    const invites = await getPendingInvites(leagueId!);
     setPendingInvites(invites);
   };
 
   const fetchUsers = async () => {
-    const usersData = await getAllUsersWithRoles();
+    const usersData = await getAllUsersWithRoles(leagueId!);
     setUsers(usersData);
   };
 
@@ -67,6 +70,15 @@ function OnboardingContent() {
     );
   }
 
+  if (!leagueId) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <p className="ml-3 text-muted-foreground">Loading league context...</p>
+      </div>
+    );
+  }
+
   const handleCreateInvite = async () => {
     if (!inviteEmail.trim() || !/^[^\s@]+@gmail\.com$/.test(inviteEmail)) {
       toast({ title: 'Error', description: 'Please enter a valid Gmail address (@gmail.com)', variant: 'destructive' });
@@ -74,8 +86,21 @@ function OnboardingContent() {
     }
 
     setIsSubmitting(true);
+
     try {
-      const res = await createUserInvite(inviteEmail, inviteRole, user?.uid || '');
+      const registered = await isUserRegistered(inviteEmail, leagueId!);
+      
+      if (registered) {
+        toast({ 
+          title: 'User Already Exists', 
+          description: 'A user with this email is already a member of a league.', 
+          variant: 'destructive' 
+        });
+        setIsSubmitting(false);
+        return; // Stop execution here
+      }
+
+      const res = await createUserInvite(inviteEmail, inviteRole, user?.uid || '', leagueId || '');
       if (!res.error && 'inviteCode' in res) {
         // Send email if enabled
         if (sendEmail) {
@@ -87,6 +112,8 @@ function OnboardingContent() {
                 email: inviteEmail,
                 inviteCode: res.inviteCode,
                 role: inviteRole,
+                leagueName: leagueName,
+                logoUrl: logoUrl,
               }),
             });
 
@@ -154,8 +181,8 @@ function OnboardingContent() {
     setEmailChecking(true);
     t = setTimeout(async () => {
       try {
-        const pending = await findPendingInviteByEmail(email);
-        const registered = await isUserRegistered(email);
+        const pending = await findPendingInviteByEmail(email, leagueId!);
+        const registered = await isUserRegistered(email, leagueId!);
         setEmailStatus({ pendingInvite: pending ?? undefined, registered: !!registered });
       } catch (err) {
         setEmailStatus(null);

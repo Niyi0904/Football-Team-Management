@@ -6,7 +6,7 @@ import {
   Trophy, TrendingUp, Star, Activity,
   Calendar, Award
 } from "lucide-react";
-import { useAppContext } from "../context/AppDataContext";
+import { useAppContext } from "../../context/AppDataContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format, parseISO } from "date-fns";

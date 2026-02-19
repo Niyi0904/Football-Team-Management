@@ -7,7 +7,7 @@ import {
   Search, TrendingUp, ChevronRight,
   Medal, ShieldAlert
 } from "lucide-react";
-import { useAppContext } from "../context/AppDataContext";
+import { useAppContext } from "../../context/AppDataContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

@@ -8,6 +8,8 @@ import { getAllUsersWithRoles, setUserRole } from '@/lib/admin';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/app/hooks/use-toast';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/redux/store';
 
 export default function UsersPage() {
   return (
@@ -24,6 +26,8 @@ function UsersContent() {
   const [loading, setLoading] = useState(true);
   const [changingRoleUserId, setChangingRoleUserId] = useState<string | null>(null);
 
+  const { id: leagueId } = useSelector((state: RootState) => state.league);
+
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
@@ -32,7 +36,7 @@ function UsersContent() {
 
   const fetchUsers = async () => {
     try {
-      const usersData = await getAllUsersWithRoles();
+      const usersData = await getAllUsersWithRoles(leagueId!);
       setUsers(usersData);
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to load users', variant: 'destructive' });

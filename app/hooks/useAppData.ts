@@ -13,8 +13,13 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  getDoc,
 } from "firebase/firestore";
 import { useToast } from "@/app/hooks/use-toast";
+import { useSelector } from "react-redux";
+import { RootState } from "@/lib/redux/store";
+import { create } from "domain";
+import { useParams } from "next/navigation";
 
 export interface Player {
   id: string;
@@ -78,6 +83,8 @@ export interface PlayerEvent {
 }
 
 export function useAppData() {
+  const params = useParams();
+  const leagueSlug = params?.slug as string;
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -90,18 +97,56 @@ export function useAppData() {
 
   const { toast } = useToast();
 
+  const {id:reduxId, settings} = useSelector((state: RootState) => state.league);
+  const [leagueId, setLeagueId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function resolveLeagueId() {
+      if (reduxId) {
+        setLeagueId(reduxId);
+        return;
+      }
+
+      if (leagueSlug) {
+        // If Redux is empty (on reload), find the ID by slug in Firestore
+        const q = query(
+          collection(db, "leagues"), 
+          where("slug", "==", leagueSlug), 
+          limit(1)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const foundId = snap.docs[0].id;
+          setLeagueId(foundId);
+          // Optional: dispatch to Redux here to "re-fill" the store
+        }
+      }
+    }
+    resolveLeagueId();
+  }, [reduxId, leagueSlug]);
+
+
+
+
   const fetchData = useCallback(async () => {
+    if (!leagueId) {
+      console.log("Skipping fetch: leagueId is null");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const [teamsSnap, playersSnap, matchesSnap, goalsSnap, assistsSnap, yellowsSnap, redsSnap] = await Promise.all([
-        getDocs(collection(db, "teams")),
-        getDocs(collection(db, "players")),
-        getDocs(query(collection(db, "matches"), orderBy("matchDay", "desc"))),
-        getDocs(collection(db, "goals")),
-        getDocs(collection(db, "assists")),
-        getDocs(collection(db, "yellow_cards")),
-        getDocs(collection(db, "red_cards")),
+        getDocs(query(collection(db, "teams"), where("leagueId", "==", leagueId)) ),
+        getDocs(query(collection(db, "players"), where("leagueId", "==", leagueId)) ),
+        getDocs(query(collection(db, "matches"), where("leagueId", "==", leagueId), orderBy("matchDay", "desc"))),
+        getDocs(query(collection(db, "goals"), where("leagueId", "==", leagueId))),
+        getDocs(query(collection(db, "assists"), where("leagueId", "==", leagueId))),
+        getDocs(query(collection(db, "yellow_cards"), where("leagueId", "==", leagueId))),
+        getDocs(query(collection(db, "red_cards"), where("leagueId", "==", leagueId))),
       ]);
+
 
       if (teamsSnap) {
         setTeams(teamsSnap.docs.map((d) => {
@@ -151,18 +196,24 @@ export function useAppData() {
       console.error("fetchData error", err);
     }
     setLoading(false);
-  }, []);
+  }, [leagueId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const addTeam = async (team: Omit<Team, "id">) => {
+    if (!leagueId) {
+      throw new Error("No active league found. Please select a league first.");
+    }
+
     try {
       await addDoc(collection(db, "teams"), {
         name: team.name,
         stadium: team.stadium,
         founded: team.founded,
         primary_color: team.primaryColor,
+        leagueId: leagueId,
         logo: team.logo ?? null,
+        createdAt: serverTimestamp(),
       });
       await fetchData();
       toast({ title: "Success", description: "Team added successfully" });
@@ -174,9 +225,18 @@ export function useAppData() {
   };
 
   const updateTeam = async (id: string, updates: Partial<Team>) => {
+    if (!leagueId) throw new Error("No active league context found.");
+
     try {
       const teamRef = doc(db, "teams", id);
-      const dbUpdates: any = { ...updates };
+
+      const teamSnap = await getDoc(teamRef);
+      if (!teamSnap.exists() || teamSnap.data().leagueId !== leagueId) {
+        throw new Error("Unauthorized: You do not have permission to edit this team.");
+      }
+
+      const dbUpdates: any = { ...updates, updatedAt: serverTimestamp() };
+
       if (updates.primaryColor) {
         dbUpdates.primary_color = updates.primaryColor;
         delete dbUpdates.primaryColor;
@@ -192,11 +252,37 @@ export function useAppData() {
   };
 
   const deleteTeam = async (teamId: string) => {
+    if (!leagueId) throw new Error("No active league context found.");
+
+    // 1. Fetch the team to verify ownership
+    const teamRef = doc(db, "teams", teamId);
+    const teamSnap = await getDoc(teamRef);
+
+    if (!teamSnap.exists()) {
+      throw new Error("Team not found.");
+    }
+
+    // SECURITY CHECK: Ensure the team belongs to the current user's league
+    if (teamSnap.data().leagueId !== leagueId) {
+      throw new Error("Unauthorized: You do not have permission to delete this team.");
+    }
+
     const hasPlayers = players.some((p) => p.teamId === teamId);
     if (hasPlayers) {
       toast({ title: "Error", description: "Cannot delete team with active players", variant: "destructive" });
       return { error: "Cannot delete team with active players." };
     }
+
+    const hasMatches = matches.some(m => m.homeTeamId === teamId || m.awayTeamId === teamId);
+    if (hasMatches) {
+      toast({ 
+        title: "Deletion Blocked", 
+        description: "Cannot delete a team with existing match records.", 
+        variant: "destructive" 
+      });
+      return { error: "Match records linked" };
+    }
+
     try {
       await deleteDoc(doc(db, "teams", teamId));
       await fetchData();
@@ -209,14 +295,20 @@ export function useAppData() {
   };
 
   const addPlayer = async (player: Omit<Player, "id">) => {
+    if (!leagueId) {
+      throw new Error("No active league session found.");
+    }
+
     try {
       await addDoc(collection(db, "players"), {
         name: player.name,
         position: player.position,
         number: player.number,
         team_id: player.teamId,
+        leagueId: leagueId,
         is_manager: player.isManager,
         photo: player.photo ?? null,
+        createdAt: serverTimestamp(),
       });
       await fetchData();
       toast({ title: "Success", description: "Player added successfully" });
@@ -228,9 +320,20 @@ export function useAppData() {
   };
 
   const updatePlayer = async (id: string, updates: Partial<Player>) => {
+    if (!leagueId) throw new Error("No active league context.");
+
+
     try {
       const playerRef = doc(db, "players", id);
-      const dbUpdates: any = { ...updates };
+      
+      // 1. SECURITY CHECK: Verify the player belongs to this league
+      const playerSnap = await getDoc(playerRef);
+      if (!playerSnap.exists() || playerSnap.data().leagueId !== leagueId) {
+        throw new Error("Unauthorized: This player does not belong to your league.");
+      }
+
+      const dbUpdates: any = { ...updates, updatedAt: serverTimestamp() };
+
       if (updates.teamId) {
         dbUpdates.team_id = updates.teamId;
         delete dbUpdates.teamId;
@@ -250,8 +353,29 @@ export function useAppData() {
   };
 
   const deletePlayer = async (id: string) => {
+    if (!leagueId) throw new Error("No active league context.");
+
     try {
       const playerRef = doc(db, "players", id);
+      // 1. SECURITY CHECK: Ensure this player belongs to the current league
+      const playerSnap = await getDoc(playerRef);
+      if (!playerSnap.exists()) throw new Error("Player not found.");
+      
+      if (playerSnap.data().leagueId !== leagueId) {
+        throw new Error("Unauthorized: You cannot delete players from other leagues.");
+      }
+
+      const hasStats = goals.some(g => g.playerId === id) || yellowCards.some(c => c.playerId === id) || redCards.some(c => c.playerId === id) || assists.some(a => a.playerId === id);
+
+      if (hasStats) {
+        toast({ 
+          title: "Cannot Delete", 
+          description: "This player has recorded stats. Archive them instead to keep history.", 
+          variant: "destructive" 
+        });
+        return { error: "Player has historical data" };
+      }
+
       await deleteDoc(playerRef);
       await fetchData();
       toast({ title: "Success", description: "Player deleted successfully" });
@@ -263,15 +387,19 @@ export function useAppData() {
   };
 
   const setManager = async (teamId: string, playerId: string) => {
+    if (!leagueId) throw new Error("No active league context.");
+
+    // 1. Scoped Query: Find all players in this TEAM within this LEAGUE
+    // We add the leagueId check for extra security to ensure we don't accidentally modify players from another league
     try {
-      const q = query(collection(db, "players"), where("team_id", "==", teamId));
+      const q = query(collection(db, "players"), where("team_id", "==", teamId), where("leagueId", "==", leagueId));
       const snap = await getDocs(q);
       const batch = writeBatch(db);
-      snap.docs.forEach((d) => batch.update(d.ref, { is_manager: false }));
+      snap.docs.forEach((d) => batch.update(d.ref, { is_manager: false, updatedAt: serverTimestamp() }));
       await batch.commit();
 
       const playerDocRef = doc(db, "players", playerId);
-      await updateDoc(playerDocRef, { is_manager: true });
+      await updateDoc(playerDocRef, { is_manager: true, updatedAt: serverTimestamp() });
       await fetchData();
       toast({ title: "Success", description: "Manager assigned successfully" });
     } catch (error) {
@@ -279,50 +407,14 @@ export function useAppData() {
     }
   };
 
-  const addRecord = async (record: Omit<MatchRecord, "id">) => {
-    try {
-      await addDoc(collection(db, "match_records"), {
-        player_id: record.playerId,
-        match_date: record.matchDate,
-        opponent: record.opponent,
-        goals: record.goals,
-        assists: record.assists,
-        yellow_cards: record.yellowCards,
-        red_cards: record.redCards,
-        minutes_played: record.minutesPlayed,
-      });
-      await fetchData();
-      toast({ title: "Success", description: "Record added successfully" });
-      return { error: null };
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to add record", variant: "destructive" });
-      return { error };
-    }
-  };
-
-  const updateRecord = async (id: string, updates: Partial<MatchRecord>) => {
-    const dbUpdates: Record<string, unknown> = {};
-    if (updates.goals !== undefined) dbUpdates.goals = updates.goals;
-    if (updates.assists !== undefined) dbUpdates.assists = updates.assists;
-    if (updates.yellowCards !== undefined) dbUpdates.yellow_cards = updates.yellowCards;
-    if (updates.redCards !== undefined) dbUpdates.red_cards = updates.redCards;
-    if (updates.minutesPlayed !== undefined) dbUpdates.minutes_played = updates.minutesPlayed;
-    try {
-      const recRef = doc(db, "match_records", id);
-      await updateDoc(recRef, dbUpdates as any);
-      await fetchData();
-      toast({ title: "Success", description: "Record updated" });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to update record", variant: "destructive" });
-    }
-  };
-
   const addMatch = async (matchData: any) => {
+    if (!leagueId) throw new Error("No active league context.");
     try {
       const matchesRef = collection(db, "matches");
       let matchDay = matchData.matchDay;
+
       if (!matchDay) {
-        const q = query(matchesRef, orderBy("matchDay", "desc"), limit(1));
+        const q = query(matchesRef, where("leagueId", "==", leagueId), orderBy("matchDay", "desc"), limit(1));
         const querySnapshot = await getDocs(q);
         matchDay = !querySnapshot.empty ? querySnapshot.docs[0].data().matchDay + 1 : 1;
       }
@@ -341,6 +433,7 @@ export function useAppData() {
       const docRef = await addDoc(matchesRef, {
         ...matchData,
         matchDay,
+        leagueId: leagueId,
         homePoints,
         awayPoints,
         createdAt: serverTimestamp(),
@@ -356,14 +449,24 @@ export function useAppData() {
   };
 
   const updateMatch = async (matchId: string, updates: Partial<Match>) => {
+    if (!leagueId) throw new Error("No active league context.");
+
     try {
       const matchRef = doc(db, "matches", matchId);
-      const dbUpdates: any = { ...updates };
+
+      // 1. SECURITY CHECK: Ensure this match belongs to the active league
+      const matchSnap = await getDoc(matchRef);
+      if (!matchSnap.exists() || matchSnap.data().leagueId !== leagueId) {
+        throw new Error("Unauthorized: You do not have permission to edit this match.");
+      }
+
+      const dbUpdates: any = { ...updates, updatedAt: serverTimestamp() };
       if (updates.homeScore !== undefined || updates.awayScore !== undefined) {
+        const winPoints = settings?.pointsForWin || 3;
         const h = updates.homeScore ?? matches.find(m => m.id === matchId)?.homeScore ?? 0;
         const a = updates.awayScore ?? matches.find(m => m.id === matchId)?.awayScore ?? 0;
-        dbUpdates.homePoints = h > a ? 3 : h === a ? 1 : 0;
-        dbUpdates.awayPoints = a > h ? 3 : a === h ? 1 : 0;
+        dbUpdates.homePoints = h > a ? winPoints : h === a ? 1 : 0;
+        dbUpdates.awayPoints = a > h ? winPoints : a === h ? 1 : 0;
       }
 
       await updateDoc(matchRef, dbUpdates);
@@ -377,12 +480,25 @@ export function useAppData() {
   };
 
   const deleteMatch = async (matchId: string) => {
+    if (!leagueId) throw new Error("No active league context.");
+
+    const matchRef = doc(db, "matches", matchId);
+    
+    // 1. SECURITY CHECK: Verify ownership before deleting anything
+    const matchSnap = await getDoc(matchRef);
+    if (!matchSnap.exists()) throw new Error("Match not found.");
+    
+    if (matchSnap.data().leagueId !== leagueId) {
+      throw new Error("Unauthorized: This match belongs to another league.");
+    }
     try {
       const batch = writeBatch(db);
-      batch.delete(doc(db, "matches", matchId));
+
+      batch.delete(matchRef);
+
       const collectionsToClean = ["goals", "assists", "yellow_cards", "red_cards"];
       for (const colName of collectionsToClean) {
-        const q = query(collection(db, colName), where("matchId", "==", matchId));
+        const q = query(collection(db, colName), where("matchId", "==", matchId), where("leagueId", "==", leagueId));
         const snapshot = await getDocs(q);
         snapshot.docs.forEach((d) => batch.delete(d.ref));
       }
@@ -406,19 +522,19 @@ export function useAppData() {
       const batch = writeBatch(db);
       stats.goals.forEach(g => {
         const ref = doc(collection(db, "goals"));
-        batch.set(ref, { ...g, matchId, matchDay, timestamp: serverTimestamp() });
+        batch.set(ref, { ...g, matchId, matchDay, leagueId: leagueId, timestamp: serverTimestamp() });
       });
       stats.assists.forEach(a => {
         const ref = doc(collection(db, "assists"));
-        batch.set(ref, { ...a, matchId, matchDay, timestamp: serverTimestamp() });
+        batch.set(ref, { ...a, matchId, matchDay, leagueId: leagueId, timestamp: serverTimestamp() });
       });
       stats.yellows.forEach(y => {
         const ref = doc(collection(db, "yellow_cards"));
-        batch.set(ref, { ...y, matchId, matchDay, timestamp: serverTimestamp() });
+        batch.set(ref, { ...y, matchId, matchDay, leagueId: leagueId, timestamp: serverTimestamp() });
       });
       stats.reds.forEach(r => {
         const ref = doc(collection(db, "red_cards"));
-        batch.set(ref, { ...r, matchId, matchDay, timestamp: serverTimestamp() });
+        batch.set(ref, { ...r, matchId, matchDay, leagueId: leagueId, timestamp: serverTimestamp() });
       });
       await batch.commit();
       await fetchData();
@@ -433,7 +549,7 @@ export function useAppData() {
       const batch = writeBatch(db);
       const collections = ["goals", "assists", "yellow_cards", "red_cards"];
       for (const col of collections) {
-        const q = query(collection(db, col), where("matchId", "==", matchId));
+        const q = query(collection(db, col), where("matchId", "==", matchId), where("leagueId", "==", leagueId));
         const snap = await getDocs(q);
         snap.docs.forEach(d => batch.delete(d.ref));
       }
@@ -536,8 +652,7 @@ export function useAppData() {
 
   return {
     teams, players, matches, loading, goals, assists, yellowCards, redCards, 
-    addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, setManager, recordMatchStats,
-    addRecord, updateRecord, addMatch, updateMatch, deleteMatch, deleteMatchEvents,
+    addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, setManager, recordMatchStats, addMatch, updateMatch, deleteMatch, deleteMatchEvents,
     getTeamPlayers, getStandings, getTeamManager, getPlayerRecords, getPlayerStats, getTopScorers,
     refetch: fetchData,
   };

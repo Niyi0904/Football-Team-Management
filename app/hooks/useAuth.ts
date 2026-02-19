@@ -29,14 +29,14 @@ export function useAuth() {
 
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      return { error: null };
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      return { user: userCredential.user, error: null };
     } catch (error: any) {
-      return { error };
+      return { user: null, error };
     }
   };
 
-  const signUp = async (email: string, password: string, displayName: string, file?: File | null) => {
+  const signUp = async (email: string, password: string, displayName: string, file?: File | null, leagueId?: string | null) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
 
@@ -59,7 +59,7 @@ export function useAuth() {
       }
 
       // Create user document in Firestore (include photoUrl if available)
-      await createUserDocument(result.user.uid, email, displayName, photoUrl ?? undefined);
+      await createUserDocument(result.user.uid, email, displayName, photoUrl ?? undefined, leagueId);
 
       return { error: null, userId: result.user.uid };
     } catch (error: any) {

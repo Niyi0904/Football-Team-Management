@@ -88,9 +88,10 @@ export function SignUpForm({ onSuccess, onSwitchToLogin, initialInviteCode }: Si
         setIsSubmitting(false);
         return;
       }
+      const resolvedLeagueId = inviteData.leagueId;
       const roleFromInvite = inviteData.role as 'admin' | 'user';
 
-      const { error, userId } = await signUp(email, password, displayName, file);
+      const { error, userId } = await signUp(email, password, displayName, file, resolvedLeagueId);
       if (error) {
         const errorCode = (error as any).code || 'unknown';
         const errorMessage = getFirebaseErrorMessage(errorCode);

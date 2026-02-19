@@ -19,13 +19,14 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
   return role === 'admin';
 }
 
-export async function createUserDocument(userId: string, email: string, displayName: string, photoUrl?: string): Promise<void> {
+export async function createUserDocument(userId: string, email: string, displayName: string, photoUrl?: string, leagueId?: string | null): Promise<void> {
   try {
     // Create user document in users collection
     await setDoc(doc(db, 'users', userId), {
       email,
       displayName,
       photoUrl: photoUrl || null,
+      leagueId: leagueId || null,
       createdAt: serverTimestamp(),
     });
 

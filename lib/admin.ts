@@ -15,22 +15,25 @@ export function generateInviteCode(): string {
 export async function createUserInvite(
   email: string,
   role: 'admin' | 'user',
-  createdByAdminId: string
+  createdByAdminId: string,
+  leagueId: string // <--- Add this
 ): Promise<{ inviteCode: string; error: null } | { error: any }> {
   try {
     // Check if a pending invite already exists for this email
     const invitesQuery = query(
       collection(db, 'user_invites'),
       where('email', '==', email),
-      where('used', '==', false)
+      where('used', '==', false),
+      where('leagueId', '==', leagueId)
     );
+    
     const invitesSnap = await getDocs(invitesQuery);
     if (!invitesSnap.empty) {
       return { error: { code: 'ALREADY_INVITED', message: 'There is already a pending invite for this email.' } };
     }
 
     // Check if a user is already registered with this email
-    const usersQuery = query(collection(db, 'users'), where('email', '==', email));
+    const usersQuery = query(collection(db, 'users'), where('leagueId', '==', leagueId), where('email', '==', email));
     const usersSnap = await getDocs(usersQuery);
     if (!usersSnap.empty) {
       return { error: { code: 'ALREADY_REGISTERED', message: 'A user with this email is already registered.' } };
@@ -40,6 +43,7 @@ export async function createUserInvite(
     await setDoc(doc(db, 'user_invites', inviteCode), {
       email,
       role,
+      leagueId,
       createdByAdminId,
       createdAt: serverTimestamp(),
       used: false,
@@ -88,9 +92,9 @@ export async function markInviteAsUsed(inviteCode: string, userId: string): Prom
 /**
  * Get all pending invites (not used yet)
  */
-export async function getPendingInvites(): Promise<any[]> {
+export async function getPendingInvites(leagueId: string): Promise<any[]> {
   try {
-    const q = query(collection(db, 'user_invites'), where('used', '==', false));
+    const q = query(collection(db, 'user_invites'), where('leagueId', '==', leagueId), where('used', '==', false));
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (error) {
@@ -102,9 +106,9 @@ export async function getPendingInvites(): Promise<any[]> {
 /**
  * Find a pending invite by email
  */
-export async function findPendingInviteByEmail(email: string): Promise<any | null> {
+export async function findPendingInviteByEmail(email: string, leagueId: string): Promise<any | null> {
   try {
-    const q = query(collection(db, 'user_invites'), where('email', '==', email), where('used', '==', false));
+    const q = query(collection(db, 'user_invites'), where('leagueId', '==', leagueId),  where('email', '==', email), where('used', '==', false));
     const snap = await getDocs(q);
     if (snap.empty) return null;
     const d = snap.docs[0];
@@ -118,7 +122,7 @@ export async function findPendingInviteByEmail(email: string): Promise<any | nul
 /**
  * Check whether a user is already registered with this email
  */
-export async function isUserRegistered(email: string): Promise<boolean> {
+export async function isUserRegistered(email: string, leagueId: string): Promise<boolean> {
   try {
     const q = query(collection(db, 'users'), where('email', '==', email));
     const snap = await getDocs(q);
@@ -147,10 +151,10 @@ export async function setUserRole(userId: string, role: 'admin' | 'user'): Promi
 /**
  * Get all users with their roles (for admin management)
  */
-export async function getAllUsersWithRoles(): Promise<any[]> {
+export async function getAllUsersWithRoles(leagueId: string): Promise<any[]> {
   try {
-    const userRolesSnap = await getDocs(collection(db, 'user_roles'));
-    const usersSnap = await getDocs(collection(db, 'users'));
+    const userRolesSnap = await getDocs(query(collection(db, 'user_roles'), where('leagueId', '==', leagueId)));
+    const usersSnap = await getDocs(query(collection(db, 'users'), where('leagueId', '==', leagueId)));
 
     // Combine user info with roles
     return usersSnap.docs.map((userDoc) => {
@@ -180,4 +184,20 @@ export async function deleteUserInvite(inviteCode: string): Promise<{ success: t
     console.error('Error deleting invite', error);
     return { error };
   }
+}
+
+export async function getLeagueBySlug(slug: string) {
+  const q = query(collection(db, 'leagues'), where('slug', '==', slug));
+  const snap = await getDocs(q);
+  
+  if (snap.empty) return null;
+
+  const docSnap = snap.docs[0];
+  const data = docSnap.data();
+
+  return { 
+    id: docSnap.id, 
+    ...data,
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null  
+  }; 
 }

@@ -6,6 +6,8 @@ import { Toaster } from "@/components/Toaster";
 import { AppDataProvider } from "./context/AppDataContext";
 import Sidebar from "@/components/Sidebar";
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { StoreProvider } from "@/components/providers/reduxStoreProvider";
+import AuthStateListener from "@/components/providers/authStateListener";
 
 
 const geistSans = Geist({
@@ -41,15 +43,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppDataProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sidebar>
+        <StoreProvider>
+          <AuthStateListener/>
+            <TooltipProvider>
+              <Toaster />
               {children}
               <SpeedInsights/>
-            </Sidebar>
-          </TooltipProvider>
-        </AppDataProvider>
+            </TooltipProvider>
+        </StoreProvider>
       </body>
     </html>
   );

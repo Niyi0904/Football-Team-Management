@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -18,23 +18,28 @@ import { useAppContext } from "@/app/context/AppDataContext";
 import { Button } from "@/components/ui/button";
 import { UserProfileDropdown } from "./UserProfileDropdown";
 
-const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/teams", label: "Teams", icon: Shield },
-  { path: "/players", label: "Players", icon: Users },
-  { path: "/stats", label: "Stats", icon: TrendingUp },
-  { path: "/standings", label: "Standings", icon: Trophy },
-  { path: "/matches", label: "Matches", icon: ClipboardList },
-];
-
-const adminNavItems = [
-  { path: "/admin/onboarding", label: "User Management", icon: Users },
-];
 
 export default function Sidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const params = useParams();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { signOut, user, isAdmin } = useAppContext();
+  
+  const leagueSlug = params?.slug as string;
+
+  const navItems = [
+    { path: `/${leagueSlug}/dashboard`, label: "Dashboard", icon: LayoutDashboard },
+    { path: `/${leagueSlug}/teams`, label: "Teams", icon: Shield },
+    { path: `/${leagueSlug}/players`, label: "Players", icon: Users },
+    { path: `/${leagueSlug}/stats`, label: "Stats", icon: TrendingUp },
+    { path: `/${leagueSlug}/standings`, label: "Standings", icon: Trophy },
+    { path: `/${leagueSlug}/matches`, label: "Matches", icon: ClipboardList },
+  ];
+  
+  const adminNavItems = [
+    { path: `/${leagueSlug}/admin/onboarding`, label: "User Management", icon: Users },
+  ];
+
 
   return (
     <div className="flex min-h-screen bg-background">

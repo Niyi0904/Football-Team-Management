@@ -6,6 +6,11 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useToast } from "@/app/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useDispatch } from "react-redux";
+import { setAuth } from "@/lib/redux/slices/authSlice";
+import { setLeague } from "@/lib/redux/slices/leagueSlice";
 
 function getFirebaseErrorMessage(code: string): string {
   const errorMessages: Record<string, string> = {
@@ -32,6 +37,7 @@ export function SignInForm({ onSuccess, onSwitchToSignUp }: SignInFormProps) {
   const { signIn } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const dispatch = useDispatch();
 
   const validateForm = (): boolean => {
     if (!email.trim()) {
@@ -55,27 +61,75 @@ export function SignInForm({ onSuccess, onSwitchToSignUp }: SignInFormProps) {
     setIsSubmitting(true);
 
     try {
-      const { error } = await signIn(email, password);
+      const { user, error } = await signIn(email, password);
+
       if (error) {
-        const errorCode = (error as any).code || 'unknown';
-        const errorMessage = getFirebaseErrorMessage(errorCode);
+        const errorMessage = getFirebaseErrorMessage(error.code);
         toast({ title: "Login failed", description: errorMessage, variant: "destructive" });
-      } else {
-        toast({ title: "Success", description: "Logged in successfully" });
-        setEmail("");
-        setPassword("");
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          router.push("/dashboard");
-        }
+        return;
       }
-    } catch (err) {
-      toast({ title: "Error", description: "An unexpected error occurred", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
+
+      if (user) {
+          // 2. Fetch the User Document from Firestore
+          const userDocRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userDocRef);
+
+          if (!userSnap.exists()) {
+            // Fallback: Auth exists but no profile? Send to onboarding
+            router.push("/onboarding");
+            return;
+          }
+
+          const userData = userSnap.data();
+          
+          // 3. Dispatch to Redux
+          // This saves the leagueId and role globally
+          dispatch(setAuth({
+            uid: user.uid,
+            email: user.email,
+            displayName: userData.displayName,
+            leagueId: userData.leagueId,
+            photoUrl: userData.photoUrl
+          }));
+
+          toast({ title: "Welcome back!", description: `Logged in as ${userData.displayName}` });
+
+          // 4. Smart Redirect Logic
+          if (!userData.leagueId) {
+            router.push("/onboarding");
+          } else {
+            // We fetch the slug once to build the pretty URL
+            const leagueSnap = await getDoc(doc(db, "leagues", userData.leagueId));
+            if (leagueSnap.exists()) {
+              const lData = leagueSnap.data();
+              
+              dispatch(setLeague({
+                id: leagueSnap.id,
+                leagueName: lData.leagueName,
+                slug: lData.slug,
+                logoUrl: lData.logoUrl,
+                ownerId: lData.ownerId,
+                adminIds: lData.adminIds || [],
+                theme: lData.theme,
+                settings: lData.settings,
+                subscription: lData.subscription,
+                // Convert Firestore Timestamp to a serializable string
+                createdAt: lData.createdAt?.toDate().toISOString() || null 
+              }));
+
+              router.push(`/${lData.slug}/dashboard`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("SignIn Error:", err);
+        toast({ title: "Error", description: "An unexpected error occurred", variant: "destructive" });
+      } finally {
+        setIsSubmitting(false);
+      }
   };
+
+  
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

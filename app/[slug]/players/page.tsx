@@ -4,14 +4,14 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Users, Plus, Target, AlertTriangle, Edit2 } from "lucide-react";
 import { uploadProfileImage } from "@/lib/uploadImage";
-import { useAppContext } from "../context/AppDataContext";
+import { useAppContext } from "../../context/AppDataContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { Player } from "../hooks/useAppData";
+import { Player } from "../../hooks/useAppData";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Trash2 } from "lucide-react";
 import {

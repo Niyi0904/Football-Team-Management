@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Match } from "../hooks/useAppData";
+import { Match } from "../../hooks/useAppData";
 import {
   Accordion,
   AccordionContent,

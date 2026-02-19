@@ -4,14 +4,14 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Shield, Plus, Users, Crown, Trash2, Upload } from "lucide-react";
 import { uploadProfileImage } from "@/lib/uploadImage";
-import { useAppContext } from "../context/AppDataContext";
+import { useAppContext } from "@/app/context/AppDataContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Edit2 } from "lucide-react";
-import { Team } from "../hooks/useAppData";
+import { Team } from "@/app/hooks/useAppData";
 import {
   AlertDialog,
   AlertDialogAction,
