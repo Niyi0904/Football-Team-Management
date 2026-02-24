@@ -12,11 +12,20 @@ export function generateInviteCode(): string {
 /**
  * Create an invite for a new user
  */
+const INVITE_DEADLINE = new Date('2026-03-31T23:59:59').getTime();
 export async function createUserInvite(
   email: string,
   role: 'admin' | 'user',
   createdByAdminId: string
 ): Promise<{ inviteCode: string; error: null } | { error: any }> {
+  if (Date.now() > INVITE_DEADLINE) {
+    return { 
+      error: { 
+        code: 'INVITES_CLOSED', 
+        message: 'Registration period has ended. No new invites can be created.' 
+      } 
+    };
+  }
   try {
     // Check if a pending invite already exists for this email
     const invitesQuery = query(
