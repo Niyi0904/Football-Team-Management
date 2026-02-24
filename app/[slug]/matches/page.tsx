@@ -121,7 +121,7 @@ function MatchRecordsContent() {
   const [isGenDialogOpen, setIsGenDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const exportRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null)
 
   const handleAutoGenerate = async (weekCount: number) => {
     if (teams.length < 2) return alert("Add more teams first!");
