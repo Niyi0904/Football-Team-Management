@@ -549,7 +549,7 @@ function MatchCard({ match, teams, isAdmin, onEdit, onDelete }: any) {
       <div className="flex flex-col md:flex-row items-center justify-between gap-6">
         {/* Home Team */}
         <div className="flex flex-1 items-center justify-end gap-4 w-full md:w-auto">
-          <span className={cn("font-bold text-lg hidden md:block", !isPlayed && "text-muted-foreground/80")}>
+          <span className={cn("font-bold text-lg hidden md:block", !isPlayed && "text-foreground")}>
             {homeTeam?.name}
           </span>
           <Avatar className="w-12 h-12 rounded-xl border-2 border-background shadow-sm">
@@ -601,7 +601,7 @@ function MatchCard({ match, teams, isAdmin, onEdit, onDelete }: any) {
               </div>
               {/* DISPLAY TIME FOR UPCOMING MATCHES */}
               {match.time && (
-                <span className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                <span className="flex items-center gap-1.5 text-xl font-bold text-foreground">
                   <Clock className="w-3.5 h-3.5 text-primary" /> 
                   {formattedTime}
                 </span>
@@ -609,7 +609,7 @@ function MatchCard({ match, teams, isAdmin, onEdit, onDelete }: any) {
             </div>
           )}
           
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
+          <div className="flex flex-col sm:flex-row items-center gap-2 text-xs uppercase tracking-widest text-foreground font-bold">
             {isPlayed ? (
               <span className="flex items-center gap-1.5 bg-secondary/50 px-2 py-0.5 rounded text-primary">
                 <Clock className="w-3 h-3" /> {match.minutesPlayed}'
@@ -631,7 +631,7 @@ function MatchCard({ match, teams, isAdmin, onEdit, onDelete }: any) {
               {awayTeam?.name?.substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <span className={cn("font-bold text-lg hidden md:block", !isPlayed && "text-muted-foreground/80")}>
+          <span className={cn("font-bold text-lg hidden md:block", !isPlayed && "text-foreground")}>
             {awayTeam?.name}
           </span>
         </div>
