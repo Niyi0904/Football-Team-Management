@@ -27,7 +27,7 @@ function OnboardingContent() {
   const { isAdmin, user } = useAppContext();
   const { toast } = useToast();
 
-  const { id: leagueId, leagueName, logoUrl } = useSelector((state:RootState) => state.league);
+  const { id: leagueId, leagueName, logoUrl } = useSelector((state: RootState) => state.league);
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'user'>('user');
@@ -80,8 +80,8 @@ function OnboardingContent() {
   }
 
   const handleCreateInvite = async () => {
-    if (!inviteEmail.trim() || !/^[^\s@]+@gmail\.com$/.test(inviteEmail)) {
-      toast({ title: 'Error', description: 'Please enter a valid Gmail address (@gmail.com)', variant: 'destructive' });
+    if (!inviteEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
+      toast({ title: 'Error', description: 'Please enter a valid Email address', variant: 'destructive' });
       return;
     }
 
@@ -89,12 +89,12 @@ function OnboardingContent() {
 
     try {
       const registered = await isUserRegistered(inviteEmail, leagueId!);
-      
+
       if (registered) {
-        toast({ 
-          title: 'User Already Exists', 
-          description: 'A user with this email is already a member of a league.', 
-          variant: 'destructive' 
+        toast({
+          title: 'User Already Exists',
+          description: 'A user with this email is already a member of a league.',
+          variant: 'destructive'
         });
         setIsSubmitting(false);
         return; // Stop execution here
@@ -118,26 +118,26 @@ function OnboardingContent() {
             });
 
             if (!emailRes.ok) {
-              toast({ 
-                title: 'Warning', 
-                description: 'Invite created but email failed to send. You can share the code manually.', 
-                variant: 'destructive' 
+              toast({
+                title: 'Warning',
+                description: 'Invite created but email failed to send. You can share the code manually.',
+                variant: 'destructive'
               });
             } else {
               toast({ title: 'Success', description: 'Invite created and sent via email!' });
             }
           } catch (emailErr) {
             console.error('Email sending error:', emailErr);
-            toast({ 
-              title: 'Warning', 
-              description: `Invite created: ${res.inviteCode}. Email failed to send, but code will be displayed below.`, 
-              variant: 'destructive' 
+            toast({
+              title: 'Warning',
+              description: `Invite created: ${res.inviteCode}. Email failed to send, but code will be displayed below.`,
+              variant: 'destructive'
             });
           }
         } else {
           toast({ title: 'Success', description: `Invite created: ${res.inviteCode}` });
         }
-        
+
         setInviteEmail('');
         setInviteRole('user');
         setSendEmail(true);
@@ -277,7 +277,7 @@ function OnboardingContent() {
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div>
-                <label className="text-sm text-muted-foreground block mb-2">Email (Gmail only)</label>
+                <label className="text-sm text-muted-foreground block mb-2">Email</label>
                 <Input
                   type="email"
                   placeholder="user@gmail.com"
@@ -287,9 +287,7 @@ function OnboardingContent() {
                 />
 
                 <div className="mt-2">
-                  {inviteEmail && !inviteEmail.endsWith('@gmail.com') ? (
-                    <p className="text-sm text-destructive">Only Gmail addresses (@gmail.com) are allowed.</p>
-                  ) : emailChecking ? (
+                  {emailChecking ? (
                     <p className="text-sm text-muted-foreground">Checking email…</p>
                   ) : emailStatus?.registered ? (
                     <p className="text-sm text-destructive">This email is already registered.</p>
@@ -316,16 +314,16 @@ function OnboardingContent() {
                 </Select>
               </div>
               <div className="flex items-center gap-2">
-                <Checkbox 
-                  id="send-email" 
-                  checked={sendEmail} 
+                <Checkbox
+                  id="send-email"
+                  checked={sendEmail}
                   onCheckedChange={(checked) => setSendEmail(checked as boolean)}
                 />
                 <label htmlFor="send-email" className="text-sm text-muted-foreground cursor-pointer">
                   Send invite via email
                 </label>
               </div>
-              <Button onClick={handleCreateInvite} className="w-full" disabled={isSubmitting || !!emailStatus?.registered || !!emailStatus?.pendingInvite || !!(inviteEmail && !inviteEmail.endsWith('@gmail.com'))}>
+              <Button onClick={handleCreateInvite} className="w-full" disabled={isSubmitting || !!emailStatus?.registered || !!emailStatus?.pendingInvite}>
                 {isSubmitting ? 'Creating...' : 'Create Invite'}
               </Button>
             </div>
@@ -351,35 +349,35 @@ function OnboardingContent() {
                   <p className="text-sm font-semibold">{invite.email}</p>
                   <p className="text-xs text-muted-foreground">Code: {invite.id}</p>
                 </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-accent/15 text-accent px-2 py-1 rounded-full font-medium">
-                      {invite.role}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleCopyCode(invite.id)}
-                      className="gap-1"
-                    >
-                      {copiedCode === invite.id ? (
-                        <>
-                          <Check className="w-3 h-3" /> Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3" /> Copy
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRevokeInvite(invite.id)}
-                      className="gap-1 text-destructive"
-                    >
-                      <Trash2 className="w-3 h-3" /> Revoke
-                    </Button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-accent/15 text-accent px-2 py-1 rounded-full font-medium">
+                    {invite.role}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleCopyCode(invite.id)}
+                    className="gap-1"
+                  >
+                    {copiedCode === invite.id ? (
+                      <>
+                        <Check className="w-3 h-3" /> Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" /> Copy
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleRevokeInvite(invite.id)}
+                    className="gap-1 text-destructive"
+                  >
+                    <Trash2 className="w-3 h-3" /> Revoke
+                  </Button>
+                </div>
               </div>
             ))
           )}
