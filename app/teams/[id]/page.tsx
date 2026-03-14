@@ -2,9 +2,9 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { 
-  ArrowLeft, Shield, Users, Trophy, 
-  Calendar, Target, Star, TrendingUp, 
+import {
+  ArrowLeft, Shield, Users, Trophy,
+  Calendar, Target, Star, TrendingUp,
   Crown
 } from "lucide-react";
 import { useAppContext } from "@/app/context/AppDataContext";
@@ -25,7 +25,7 @@ export default function TeamProfile() {
   const manager = getTeamManager(team.id);
 
   // 1. Calculate Team Stats
-  const teamMatches = matches.filter(m => m.homeTeamId === id || m.awayTeamId === id);
+  const teamMatches = matches.filter(m => m.homeTeamId === id || m.awayTeamId === id && m.status === "played");
   const totalGoals = goals.filter(g => teamPlayers.some(p => p.id === g.playerId)).length;
   const totalAssists = assists.filter(a => teamPlayers.some(p => p.id === a.playerId)).length;
 
@@ -52,15 +52,15 @@ export default function TeamProfile() {
   return (
     <div className="max-w-7xl mx-auto px-4 pb-12">
       {/* Header Section */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }} 
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col md:flex-row items-center gap-6 py-8 border-b mb-8"
       >
         <Button variant="outline" size="icon" onClick={() => router.push("/teams")} className="rounded-full shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        
+
         <Avatar className="w-24 h-24 rounded-2xl border-4 border-card shadow-xl">
           <AvatarImage src={team.logo || ""} className="object-cover" />
           <AvatarFallback style={{ backgroundColor: team.primaryColor }} className="text-3xl font-bold text-white">
@@ -79,14 +79,14 @@ export default function TeamProfile() {
         </div>
 
         <div className="flex gap-4">
-           <div className="text-center bg-card p-4 rounded-xl border border-border/50 min-w-[100px]">
-              <p className="text-[10px] uppercase font-black text-muted-foreground">Matches</p>
-              <p className="text-2xl font-black">{teamMatches.length}</p>
-           </div>
-           <div className="text-center bg-card p-4 rounded-xl border border-border/50 min-w-[100px]">
-              <p className="text-[10px] uppercase font-black text-primary">Goals</p>
-              <p className="text-2xl font-black text-primary">{totalGoals}</p>
-           </div>
+          <div className="text-center bg-card p-4 rounded-xl border border-border/50 min-w-[100px]">
+            <p className="text-[10px] uppercase font-black text-muted-foreground">Matches</p>
+            <p className="text-2xl font-black">{teamMatches.length}</p>
+          </div>
+          <div className="text-center bg-card p-4 rounded-xl border border-border/50 min-w-[100px]">
+            <p className="text-[10px] uppercase font-black text-primary">Goals</p>
+            <p className="text-2xl font-black text-primary">{totalGoals}</p>
+          </div>
         </div>
       </motion.div>
 
@@ -180,11 +180,11 @@ export default function TeamProfile() {
                   const opponentId = isHome ? match.awayTeamId : match.homeTeamId;
                   const opponent = teams.find(t => t.id === opponentId);
                   const result = getMatchResult(match);
-                  
+
                   return (
-                    <motion.div 
+                    <motion.div
                       whileHover={{ x: 4 }}
-                      key={match.id} 
+                      key={match.id}
                       className="p-5 flex items-center justify-between hover:bg-muted/20 transition-colors"
                     >
                       <div className="flex flex-col gap-1">
@@ -199,10 +199,10 @@ export default function TeamProfile() {
 
                       <div className="flex items-center gap-6">
                         <div className="flex flex-col items-end">
-                           <div className="text-2xl font-black font-mono tracking-tighter">
-                             {match.homeScore} - {match.awayScore}
-                           </div>
-                           <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${isHome ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>
+                          <div className="text-2xl font-black font-mono tracking-tighter">
+                            {match.homeScore} - {match.awayScore}
+                          </div>
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${isHome ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>
                             {isHome ? 'Home' : 'Away'}
                           </span>
                         </div>
