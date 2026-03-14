@@ -25,7 +25,8 @@ export default function TeamProfile() {
   const manager = getTeamManager(team.id);
 
   // 1. Calculate Team Stats
-  const teamMatches = matches.filter(m => m.homeTeamId === id || m.awayTeamId === id && m.status === "played");
+  const teamMatches = matches.filter(m => (m.homeTeamId === id || m.awayTeamId === id) && m.status === "played");
+  // console.log(teamMatches)
   const totalGoals = goals.filter(g => teamPlayers.some(p => p.id === g.playerId)).length;
   const totalAssists = assists.filter(a => teamPlayers.some(p => p.id === a.playerId)).length;
 
