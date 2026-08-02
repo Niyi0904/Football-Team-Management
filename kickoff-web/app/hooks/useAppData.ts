@@ -12,7 +12,6 @@ import {
   query,
   where,
   writeBatch,
-  deleteDoc,
   orderBy,
   limit,
   serverTimestamp,
@@ -139,7 +138,8 @@ export const QUERY_KEYS = {
 // ─────────────────────────────────────────────
 
 async function fetchTeams(): Promise<Team[]> {
-  const snap = await getDocs(collection(db, "teams"));
+  // Exclude soft-deleted teams (deletedAt != null)
+  const snap = await getDocs(query(collection(db, "teams"), where("deletedAt", "==", null)));
   return snap.docs.map((d) => {
     const t = d.data();
     return {
@@ -156,7 +156,8 @@ async function fetchTeams(): Promise<Team[]> {
 }
 
 async function fetchPlayers(): Promise<Player[]> {
-  const snap = await getDocs(collection(db, "players"));
+  // Exclude soft-deleted players (deletedAt != null)
+  const snap = await getDocs(query(collection(db, "players"), where("deletedAt", "==", null)));
   return snap.docs.map((d) => {
     const p = d.data();
     return {
@@ -173,17 +174,22 @@ async function fetchPlayers(): Promise<Player[]> {
 }
 
 async function fetchMatches(): Promise<Match[]> {
-  const snap = await getDocs(query(collection(db, "matches"), orderBy("matchDay", "desc")));
+  // Exclude soft-deleted matches (deletedAt != null)
+  const snap = await getDocs(
+    query(collection(db, "matches"), where("deletedAt", "==", null), orderBy("matchDay", "desc"))
+  );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Match));
 }
 
 async function fetchEvents(colName: string): Promise<PlayerEvent[]> {
-  const snap = await getDocs(collection(db, colName));
+  // Exclude soft-deleted event records (deletedAt != null)
+  const snap = await getDocs(query(collection(db, colName), where("deletedAt", "==", null)));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as PlayerEvent));
 }
 
 async function fetchAttendance(): Promise<MatchAttendance[]> {
-  const snap = await getDocs(collection(db, "match_attendance"));
+  // Exclude soft-deleted attendance records (deletedAt != null)
+  const snap = await getDocs(query(collection(db, "match_attendance"), where("deletedAt", "==", null)));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as MatchAttendance));
 }
 
@@ -352,7 +358,8 @@ export function useAppData() {
       return { error: "Cannot delete team with active players." };
     }
     try {
-      await deleteDoc(doc(db, "teams", teamId));
+      // Soft delete: mark with deletedAt instead of removing from database
+      await updateDoc(doc(db, "teams", teamId), { deletedAt: serverTimestamp() });
       invalidate("teams");
       toast({ title: "Success", description: "Team deleted successfully" });
       return { error: null };
@@ -399,7 +406,8 @@ export function useAppData() {
 
   const deletePlayer = async (id: string) => {
     try {
-      await deleteDoc(doc(db, "players", id));
+      // Soft delete: mark with deletedAt instead of removing from database
+      await updateDoc(doc(db, "players", id), { deletedAt: serverTimestamp() });
       invalidate("players");
       toast({ title: "Success", description: "Player deleted successfully" });
       return { error: null };
@@ -509,14 +517,17 @@ export function useAppData() {
   const deleteMatch = async (matchId: string) => {
     try {
       const batch = writeBatch(db);
-      batch.delete(doc(db, "matches", matchId));
+      const deletedAt = serverTimestamp();
 
-      // Collect all event docs in parallel, then batch-delete
+      // Soft delete: mark the match with deletedAt instead of removing from database
+      batch.update(doc(db, "matches", matchId), { deletedAt });
+
+      // Soft delete all related event records for this match
       const eventCollections = ["goals", "assists", "yellow_cards", "red_cards", "match_attendance"];
       const snaps = await Promise.all(
         eventCollections.map((col) => getDocs(query(collection(db, col), where("matchId", "==", matchId))))
       );
-      snaps.forEach((snap) => snap.docs.forEach((d) => batch.delete(d.ref)));
+      snaps.forEach((snap) => snap.docs.forEach((d) => batch.update(d.ref, { deletedAt })));
 
       await batch.commit();
       invalidate("matches", "goals", "assists", "yellowCards", "redCards", "attendance");
@@ -551,10 +562,12 @@ export function useAppData() {
     try {
       const eventCollections = ["goals", "assists", "yellow_cards", "red_cards", "match_attendance"];
 
-      // Collect all match refs + all event refs in parallel
+      // Fetch only non-deleted matches + event docs to soft-delete
       const [matchSnap, ...eventSnaps] = await Promise.all([
-        getDocs(collection(db, "matches")),
-        ...eventCollections.map((col) => getDocs(collection(db, col))),
+        getDocs(query(collection(db, "matches"), where("deletedAt", "==", null))),
+        ...eventCollections.map((col) =>
+          getDocs(query(collection(db, col), where("deletedAt", "==", null)))
+        ),
       ]);
 
       // Firestore batch limit is 500 — chunk if needed
@@ -566,7 +579,8 @@ export function useAppData() {
       const BATCH_LIMIT = 490;
       for (let i = 0; i < allRefs.length; i += BATCH_LIMIT) {
         const batch = writeBatch(db);
-        allRefs.slice(i, i + BATCH_LIMIT).forEach((ref) => batch.delete(ref));
+        // Soft delete: mark each document with deletedAt instead of removing from database
+        allRefs.slice(i, i + BATCH_LIMIT).forEach((ref) => batch.update(ref, { deletedAt: serverTimestamp() }));
         await batch.commit();
       }
 
