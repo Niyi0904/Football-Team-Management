@@ -37,6 +37,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# local script outputs
+/kickoff-web/scripts/backfillDeletedAt.*
+/kickoff-web/scripts/inspectMatches.*
+
 # env files (can opt-in for committing if needed)
 .env*
 

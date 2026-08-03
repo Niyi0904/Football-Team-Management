@@ -175,10 +175,10 @@ async function fetchPlayers(): Promise<Player[]> {
 
 async function fetchMatches(): Promise<Match[]> {
   // Exclude soft-deleted matches (deletedAt != null)
-  const snap = await getDocs(
-    query(collection(db, "matches"), where("deletedAt", "==", null), orderBy("matchDay", "desc"))
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Match));
+  const snap = await getDocs(query(collection(db, "matches"), orderBy("matchDay", "desc")));
+  return snap.docs
+    .filter((d) => !d.data().deletedAt)
+    .map((d) => ({ id: d.id, ...d.data() } as Match));
 }
 
 async function fetchEvents(colName: string): Promise<PlayerEvent[]> {
