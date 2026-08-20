@@ -464,6 +464,17 @@ function MatchCard({ match, teams, isAdmin, onEdit, onDelete, onViewDetails }: a
   const awayTeam = teams.find((t: any) => t.id === match.awayTeamId);
   const isPlayed = match.status === 'played';
   const formattedTime = useMemo(() => formatTime12h(match.time), [match.time]);
+  const formattedDate = useMemo(
+    () => match.scheduledDate
+      ? new Date(match.scheduledDate).toLocaleDateString(undefined, {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      : null,
+    [match.scheduledDate]
+  );
 
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -536,6 +547,13 @@ function MatchCard({ match, teams, isAdmin, onEdit, onDelete, onViewDetails }: a
                 </span>
               )}
             </div>
+          )}
+
+          {formattedDate && (
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              {formattedDate}
+            </span>
           )}
 
           <div className="flex flex-col sm:flex-row items-center gap-2 text-xs uppercase tracking-widest text-foreground font-bold">

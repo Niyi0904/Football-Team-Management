@@ -23,6 +23,20 @@ async function getInviteDeadlineMs(): Promise<number> {
   return new Date('2099-12-31T23:59:59').getTime();
 }
 
+async function getLeagueIdForPlayerCreation(createdByAdminId: string, teamId: string): Promise<string> {
+  if (createdByAdminId) {
+    const roleSnap = await getDoc(doc(db, 'user_roles', createdByAdminId));
+    const roleLeagueId = roleSnap.exists() ? roleSnap.data()?.leagueId : null;
+    if (roleLeagueId) return roleLeagueId;
+  }
+
+  const teamSnap = await getDoc(doc(db, 'teams', teamId));
+  const teamLeagueId = teamSnap.exists() ? teamSnap.data()?.leagueId : null;
+  if (teamLeagueId) return teamLeagueId;
+
+  throw new Error('Cannot create player without a leagueId from the creating user role or selected team.');
+}
+
 export type InvitePlayerMode = 'none' | 'link_existing' | 'create_new';
 
 export interface NewPlayerData {
@@ -74,12 +88,13 @@ export async function createUserInvite(
     }
 
     if (playerMode === 'create_new' && newPlayer) {
+      const leagueId = await getLeagueIdForPlayerCreation(createdByAdminId, newPlayer.teamId);
       const newPlayerRef = doc(collection(db, 'players'));
       batch.set(newPlayerRef, {
         name: newPlayer.name, position: newPlayer.position,
         number: newPlayer.number, team_id: newPlayer.teamId,
-        is_manager: false, photo: null, linkedUserId: null,
-        createdAt: serverTimestamp(),
+        leagueId,
+        is_manager: false, photo: null, deletedAt: null,
       });
       linkedPlayerId = newPlayerRef.id;
     }

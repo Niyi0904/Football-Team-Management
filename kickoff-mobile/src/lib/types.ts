@@ -14,6 +14,7 @@ export interface UserRoleDoc {
   role: RoleType;
   teamId?: string;
   playerId?: string;
+  leagueId?: string;
 }
 
 // Team Types

@@ -10,6 +10,7 @@ interface AuthContextType {
   role: RoleType | null;
   teamId: string | null;
   playerId: string | null;
+  leagueId: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isLeagueManager: boolean;
@@ -57,6 +58,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const role = userRole?.role ?? null;
   const teamId = userRole?.teamId ?? null;
   const playerId = userRole?.playerId ?? null;
+  const leagueId = userRole?.leagueId ?? null;
   const isLeagueManager = role === 'league_manager' || role === 'admin';
   const isTeamManager = role === 'team_manager';
   const isPlayer = role === 'player' || role === 'user';
@@ -69,6 +71,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     role,
     teamId,
     playerId,
+    leagueId,
     isLoading,
     isAuthenticated: !!user,
     isLeagueManager,

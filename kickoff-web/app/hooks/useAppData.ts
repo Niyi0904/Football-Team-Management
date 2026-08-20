@@ -75,6 +75,7 @@ export interface Match {
   awayPoints: number;
   minutesPlayed: number;
   league: string;
+  leagueId?: string;
   createdAt: any;
   time?: string;
   status: 'upcoming' | 'live' | 'played';
@@ -251,14 +252,14 @@ export function useAppData() {
   }, [queryClient]);
 
   // ── Get current auth role (inlined for use in mutations) ───────────────
-  const getCurrentUserRole = useCallback(async (): Promise<{ role: string; uid: string } | null> => {
+  const getCurrentUserRole = useCallback(async (): Promise<{ role: string; uid: string; leagueId?: string } | null> => {
     try {
       const auth = getAuth();
       const currentUser = auth.currentUser;
       if (!currentUser) return null;
       const roleSnap = await getDoc(doc(db, "user_roles", currentUser.uid));
-      const role = roleSnap.exists() ? (roleSnap.data().role ?? 'player') : 'player';
-      return { role, uid: currentUser.uid };
+      const data = roleSnap.exists() ? roleSnap.data() : null;
+      return { role: data?.role ?? 'player', uid: currentUser.uid, leagueId: data?.leagueId };
     } catch {
       return null;
     }
@@ -437,10 +438,16 @@ export function useAppData() {
     try {
       const matchesRef = collection(db, "matches");
 
+      // Resolve leagueId from the current user's session context dynamically
+      const userInfo = await getCurrentUserRole();
+      const leagueId = userInfo?.leagueId ?? null;
+
       // If matchDay is explicitly provided, skip the auto-calculation entirely
       if (matchData.matchDay) {
         const docRef = await addDoc(matchesRef, {
           ...matchData,
+          ...(leagueId ? { leagueId } : {}),
+          deletedAt: null,
           createdAt: serverTimestamp(),
           homePoints: calculatePoints(matchData).home,
           awayPoints: calculatePoints(matchData).away,
@@ -477,9 +484,11 @@ export function useAppData() {
 
         transaction.set(newRef, {
           ...matchData,
+          ...(leagueId ? { leagueId } : {}),
           matchDay:    newMatchDay,
           homePoints,
           awayPoints,
+          deletedAt:   null,
           createdAt:   serverTimestamp(),
         });
       });
@@ -542,10 +551,17 @@ export function useAppData() {
   // ── Batch fixture generation (replaces sequential loop in matches/page.tsx) ──
   const addMatchesBatch = async (fixtures: (Partial<Match> & { status: 'upcoming' | 'played' })[]) => {
     try {
+      const userInfo = await getCurrentUserRole();
+      const leagueId = userInfo?.leagueId ?? null;
       const batch = writeBatch(db);
       fixtures.forEach((fixture) => {
         const ref = doc(collection(db, "matches"));
-        batch.set(ref, { ...fixture, createdAt: serverTimestamp() });
+        batch.set(ref, {
+          ...fixture,
+          ...(leagueId && !fixture.leagueId ? { leagueId } : {}),
+          deletedAt: null,
+          createdAt: serverTimestamp(),
+        });
       });
       await batch.commit();
       invalidate("matches");
@@ -606,14 +622,17 @@ export function useAppData() {
     }
   ) => {
     try {
+      const userInfo = await getCurrentUserRole();
+      const leagueId = userInfo?.leagueId ?? null;
       const batch = writeBatch(db);
       const ts = serverTimestamp();
+      const eventBase = { deletedAt: null, ...(leagueId ? { leagueId } : {}) };
 
-      stats.goals.forEach((g) =>   batch.set(doc(collection(db, "goals")),        { ...g, matchId, matchDay, timestamp: ts }));
-      stats.assists.forEach((a) =>  batch.set(doc(collection(db, "assists")),      { ...a, matchId, matchDay, timestamp: ts }));
-      stats.yellows.forEach((y) =>  batch.set(doc(collection(db, "yellow_cards")), { ...y, matchId, matchDay, timestamp: ts }));
-      stats.reds.forEach((r) =>     batch.set(doc(collection(db, "red_cards")),    { ...r, matchId, matchDay, timestamp: ts }));
-      stats.attendance?.forEach((a) => batch.set(doc(collection(db, "match_attendance")), { ...a, matchId, matchDay, timestamp: ts }));
+      stats.goals.forEach((g) =>   batch.set(doc(collection(db, "goals")),        { ...g, matchId, matchDay, timestamp: ts, ...eventBase }));
+      stats.assists.forEach((a) =>  batch.set(doc(collection(db, "assists")),      { ...a, matchId, matchDay, timestamp: ts, ...eventBase }));
+      stats.yellows.forEach((y) =>  batch.set(doc(collection(db, "yellow_cards")), { ...y, matchId, matchDay, timestamp: ts, ...eventBase }));
+      stats.reds.forEach((r) =>     batch.set(doc(collection(db, "red_cards")),    { ...r, matchId, matchDay, timestamp: ts, ...eventBase }));
+      stats.attendance?.forEach((a) => batch.set(doc(collection(db, "match_attendance")), { ...a, matchId, matchDay, timestamp: ts, ...eventBase }));
 
       await batch.commit();
       invalidate("goals", "assists", "yellowCards", "redCards", "attendance");

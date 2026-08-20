@@ -262,6 +262,7 @@ export const fetchLeagueSettings = async (): Promise<LeagueSettings> => {
   }
 };
 import { addDoc, updateDoc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 /** Add a new team */
 export const addTeam = async (teamData: Omit<Team, 'id'>): Promise<string | null> => {
@@ -362,6 +363,7 @@ export const addMatch = async (matchData: Omit<Match, 'id'>): Promise<string | n
   try {
     const docRef = await addDoc(collection(db, 'matches'), {
       ...matchData,
+      deletedAt: null,
       createdAt: serverTimestamp(),
     });
     return docRef.id;
@@ -444,10 +446,20 @@ export const addMatchEvent = async (
   event: BaseEvent & { minute?: number },
 ): Promise<string | null> => {
   try {
+    let leagueId: string | undefined;
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const roleSnap = await getDoc(doc(db, 'user_roles', currentUser.uid));
+      leagueId = roleSnap.exists() ? roleSnap.data()?.leagueId : undefined;
+    }
+
     const docRef = await addDoc(collection(db, collectionName), {
       ...event,
       minute: event.minute ?? 0,
       timestamp: serverTimestamp(),
+      deletedAt: null,
+      ...(leagueId ? { leagueId } : {}),
     });
     return docRef.id;
   } catch (error) {

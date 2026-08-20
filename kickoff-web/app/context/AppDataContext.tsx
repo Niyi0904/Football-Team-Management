@@ -63,6 +63,7 @@ export function useAppContext() {
     isPlayer: auth.isPlayer,
     teamId: auth.teamId,
     playerId: auth.playerId,
+    leagueId: auth.leagueId,
     isAdmin: auth.isAdmin,
     authLoading: auth.loading, // renamed to avoid clash with data.loading
     signIn: auth.signIn,

@@ -47,16 +47,19 @@ export function EditMatchDialog({ match, open, onOpenChange }: EditMatchDialogPr
   // Sync internal state when match prop changes
   useEffect(() => {
     if (match && open) {
-      // 1. Handle Date Parsing
+      // 1. Handle Date Parsing — prefer scheduledDate (canonical field),
+      //    fall back to legacy date field for documents not yet backfilled.
       let parsedDate = new Date();
-      if (match.date) {
-        const d = new Date(match.date);
+      const rawDate = match.scheduledDate || match.date;
+      if (rawDate) {
+        const d = new Date(rawDate);
         if (isValid(d)) {
           parsedDate = d;
         }
       }
 
-      // 2. Sync the Match Form
+      // 2. Sync the Match Form — store parsed date in local `date` key only for
+      //    the calendar picker; it is converted back to scheduledDate on save.
       setMatchForm({ 
         ...match, 
         date: parsedDate,
@@ -143,8 +146,15 @@ export function EditMatchDialog({ match, open, onOpenChange }: EditMatchDialogPr
         else { homePoints = 1; awayPoints = 1; }
       }
 
+      // Convert local `date` (Date object used by the calendar picker) to
+      // scheduledDate (canonical ISO string written to Firestore). Never
+      // forward the raw `date` key — that field is being removed from the DB.
+      const { date, ...restForm } = matchForm;
       const finalMatchData = { 
-        ...matchForm, 
+        ...restForm,
+        scheduledDate: (date instanceof Date && isValid(date))
+          ? date.toISOString().split('T')[0]
+          : matchForm.scheduledDate ?? '',
         homePoints, 
         awayPoints,
         homeScore: matchForm.status === 'upcoming' ? 0 : matchForm.homeScore,

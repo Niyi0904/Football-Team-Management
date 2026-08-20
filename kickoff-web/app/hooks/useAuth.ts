@@ -35,6 +35,7 @@ interface UserRoleInfo {
   role: 'league_manager' | 'team_manager' | 'player' | 'admin' | 'user' | null;
   teamId?: string | null;
   playerId?: string | null;
+  leagueId?: string | null;
 }
 
 async function getUserRoleInfo(uid: string): Promise<UserRoleInfo> {
@@ -51,6 +52,7 @@ async function getUserRoleInfo(uid: string): Promise<UserRoleInfo> {
       role: data?.role ?? 'player',
       teamId: data?.teamId ?? null,
       playerId: data?.playerId ?? null,
+      leagueId: data?.leagueId ?? null,
     };
   } catch (error) {
     // Deliberately fail closed — never grant admin/manager on error
@@ -64,6 +66,7 @@ export function useAuth() {
   const [role,      setRole]      = useState<'league_manager' | 'team_manager' | 'player' | 'admin' | 'user' | null>(null);
   const [teamId,    setTeamId]    = useState<string | null>(null);
   const [playerId,  setPlayerId]  = useState<string | null>(null);
+  const [leagueId,  setLeagueId]  = useState<string | null>(null);
   const [loading,   setLoading]   = useState(true);
 
   const isLeagueManager = role === 'league_manager' || role === 'admin';
@@ -85,6 +88,7 @@ export function useAuth() {
         setRole(null);
         setTeamId(null);
         setPlayerId(null);
+        setLeagueId(null);
 
         const info = await getUserRoleInfo(currentUser.uid);
 
@@ -93,12 +97,14 @@ export function useAuth() {
           setRole(info.role);
           setTeamId(info.teamId ?? null);
           setPlayerId(info.playerId ?? null);
+          setLeagueId(info.leagueId ?? null);
         }
       } else {
         // Signed out — always clear state immediately
         setRole(null);
         setTeamId(null);
         setPlayerId(null);
+        setLeagueId(null);
       }
 
       setLoading(false);
@@ -166,6 +172,7 @@ export function useAuth() {
       setRole(null);
       setTeamId(null);
       setPlayerId(null);
+      setLeagueId(null);
       currentUidRef.current = null;
       await firebaseSignOut(auth);
     } catch (error: any) {
@@ -201,6 +208,7 @@ export function useAuth() {
     isPlayer,
     teamId,
     playerId,
+    leagueId,
     isAdmin,
     loading,
     signIn,

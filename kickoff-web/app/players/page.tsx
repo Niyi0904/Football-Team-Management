@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Plus, Target, AlertTriangle, Edit2, X, Mail } from "lucide-react";
+import { Users, Plus, Target, AlertTriangle, Edit2, X, Mail, Search } from "lucide-react";
 import { uploadProfileImage } from "@/lib/uploadImage";
 import { useAppContext } from "../context/AppDataContext";
 import { Button } from "@/components/ui/button";
@@ -62,9 +62,22 @@ function PlayersContent() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [filterTeam, setFilterTeam] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [form, setForm] = useState({ name: "", position: "Forward", number: 0, teamId: "", photoFile: null as File | null });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const filtered = filterTeam === "all" ? players : players.filter((p) => p.teamId === filterTeam);
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filtered = players.filter((player) => {
+    if (filterTeam !== "all" && player.teamId !== filterTeam) return false;
+    if (!normalizedSearch) return true;
+
+    const team = teams.find((t) => t.id === player.teamId);
+    return [
+      player.name,
+      player.position,
+      String(player.number),
+      team?.name,
+    ].some((value) => value?.toLowerCase().includes(normalizedSearch));
+  });
 
   const { deadlineMs, isDeadlinePassed } = useLeagueSettings();
 
@@ -133,6 +146,15 @@ function PlayersContent() {
           <p className="text-muted-foreground mt-1">Registered players across all teams</p>
         </motion.div>
         <div className="flex items-center gap-3">
+          <div className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search players"
+              className="h-10 bg-secondary border-border pl-9"
+            />
+          </div>
           <Select value={filterTeam} onValueChange={setFilterTeam}>
             <SelectTrigger className="w-40 bg-secondary border-border">
               <SelectValue />
