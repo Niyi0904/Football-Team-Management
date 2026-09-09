@@ -5,8 +5,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 const PLAYERS_COLLECTION = 'players';
 const BACKFILL_LEAGUE_ID = 'MWFePlubN1q0O5WH0Ih3';
-const EXPECTED_MISSING_LEAGUE_ID = 19;
-const EXPECTED_MISSING_DELETED_AT = 12;
+const EXPECTED_MISSING_LEAGUE_ID = 4;
+const EXPECTED_MISSING_DELETED_AT = 4;
 const FLAGGED_DELETED_AT_TIMESTAMP_DOC_ID = 'pYKpLlDl8rVu7CXCkAF7';
 const BATCH_LIMIT = 400;
 

@@ -33,7 +33,9 @@ export interface Player {
   teamId: string;
   isManager: boolean;
   photo?: string | null;
-  linkedUserId?: string | null
+  linkedUserId?: string | null;
+  leagueId?: string | null;
+  deletedAt?: any;
 }
 
 export interface Team {
@@ -169,7 +171,9 @@ async function fetchPlayers(): Promise<Player[]> {
       teamId: p.team_id ?? p.teamId,
       isManager: p.is_manager ?? p.isManager ?? false,
       photo: p.photo ?? null,
-      linkedUserId: p.linkedUserId ?? null
+      linkedUserId: p.linkedUserId ?? null,
+      leagueId: p.leagueId ?? null,
+      deletedAt: p.deletedAt ?? null,
     };
   });
 }
@@ -373,6 +377,10 @@ export function useAppData() {
   // ── Player mutations ───────────────────────────────────────────────────
   const addPlayer = async (player: Omit<Player, "id">) => {
     try {
+      // Resolve leagueId from the current user's session context dynamically
+      const userInfo = await getCurrentUserRole();
+      const leagueId = userInfo?.leagueId ?? null;
+
       await addDoc(collection(db, "players"), {
         name: player.name,
         position: player.position,
@@ -380,6 +388,8 @@ export function useAppData() {
         team_id: player.teamId,
         is_manager: player.isManager,
         photo: player.photo ?? null,
+        leagueId,
+        deletedAt: null,
       });
       invalidate("players");
       toast({ title: "Success", description: "Player added successfully" });
